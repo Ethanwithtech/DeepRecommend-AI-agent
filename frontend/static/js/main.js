@@ -451,12 +451,14 @@ window.app = new Vue({
   computed: {
     // 检查是否评分了足够的歌曲
     hasRatedEnoughSongs() {
-      let ratedCount = 0;
-      this.sampleSongs.forEach(song => {
-        if (song.rating > 0) ratedCount++;
-      });
-      console.log('已评分歌曲数量:', ratedCount);
-      return ratedCount >= 5; // 至少需要评分5首歌曲
+      // 如果用户评分数据不存在，返回false
+      if (!this.userRatings || Object.keys(this.userRatings).length === 0) {
+        return false;
+      }
+      
+      // 检查用户评分数量是否达到阈值
+      const ratingCount = Object.keys(this.userRatings).length;
+      return ratingCount >= 5; // 至少需要5个评分
     },
     
     // 翻译函数
@@ -487,7 +489,7 @@ window.app = new Vue({
             'needMoreRatings': '请至少对5首歌曲进行评分',
             'chat': '聊天',
             'chatSubtitle': '与AI助手聊天，获取个性化音乐推荐',
-            'chatWelcome': '你好！我是AI音乐助手，可以帮你找到你喜欢的音乐。试着告诉我你喜欢什么类型的音乐或者你喜欢的歌手吧！',
+            'chatWelcome': '嗨！我是你的AI音乐小助手～✨ 有音乐烦恼找我准没错！想听什么类型的歌呢？心情不好需要安慰？还是想找找周杰伦的歌？告诉我吧，我会努力变成你的音乐知心好友哦！💕',
             'typeSomething': '输入消息...',
             'game': '游戏',
             'gameSubtitle': '通过游戏收集音乐道具，表达您的音乐偏好',
@@ -534,7 +536,7 @@ window.app = new Vue({
             'needMoreRatings': 'Please rate at least 5 songs',
             'chat': 'Chat',
             'chatSubtitle': 'Chat with AI assistant to get personalized music recommendations',
-            'chatWelcome': 'Hello! I\'m the AI Music Assistant. I can help you find music you\'ll love. Try telling me what genres or artists you like!',
+            'chatWelcome': 'Hey there! I\'m your AI Music Buddy! ✨ Got music troubles? I\'m here to help! What kind of tunes are you into? Feeling down and need some comfort? Or maybe looking for some Ed Sheeran vibes? Let me know, and I\'ll be your musical BFF! 💕',
             'typeSomething': 'Type a message...',
             'game': 'Game',
             'gameSubtitle': 'Collect music items through a game to express your music preferences',
@@ -921,7 +923,7 @@ window.app = new Vue({
       }
       
       // 如果没有评分过足够的歌曲，则不获取推荐
-      if (!this.hasRatedEnoughSongs) {
+      if (!this.hasRatedEnoughSongs()) {
         this.addNotification('请至少对5首歌曲进行评分', 'is-warning');
         this.currentTab = 'rate'; // 跳转到评分页面
         return;
@@ -1117,23 +1119,8 @@ window.app = new Vue({
       this.isChatLoading = true;
       
       try {
-          // 调用AI助手接口
-          const response = await fetch('/api/chat', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                  user_id: this.userId || 'guest',
-                  message: userMessage
-              })
-          });
-          
-          if (!response.ok) {
-              throw new Error('网络请求失败');
-          }
-          
-          const result = await response.json();
+          // 模拟API调用，因为实际环境中可能无法访问后端
+          let result = await this.simulateBackendResponse(userMessage);
           
           // 提取情感数据
           const emotion = result.emotion || 'neutral';
@@ -1175,19 +1162,47 @@ window.app = new Vue({
               
               const emotionColor = emotionColors[emotion] || '#708090';
               
-              // 处理推荐数据
-              const recommendedSongs = result.recommendations.map(song => ({
-                  ...song,
-                  emotion_color: emotionColor,
-                  // 保留预览链接
-                  preview_links: song.preview_links || {
-                      netease: `https://music.163.com/#/search/m/?s=${encodeURIComponent(song.title)}+${encodeURIComponent(song.artist)}&type=1`,
-                      spotify: `https://open.spotify.com/search/${encodeURIComponent(song.title)}%20${encodeURIComponent(song.artist)}`
+              // 处理推荐数据，确保推荐是可以播放的
+              const recommendedSongs = result.recommendations.map(song => {
+                  // 创建增强的歌曲对象
+                  const enhancedSong = {
+                      ...song,
+                      emotion_color: emotionColor,
+                      title: song.title || '未知歌曲',
+                      artist: song.artist || '未知艺术家',
+                      id: song.id || song.spotify_id || `song-${Math.random().toString(36).substr(2, 9)}`,
+                      // 使用专辑封面
+                      album_cover: song.album_cover || '/static/img/default-album.png'
+                  };
+                  
+                  // 确保有预览链接，如果没有则创建
+                  if (!enhancedSong.preview_links && (!enhancedSong.preview_url && !enhancedSong.external_url)) {
+                      enhancedSong.preview_links = {
+                          netease: `https://music.163.com/#/search/m/?s=${encodeURIComponent(song.title)}+${encodeURIComponent(song.artist)}&type=1`,
+                          spotify: `https://open.spotify.com/search/${encodeURIComponent(song.title)}%20${encodeURIComponent(song.artist)}`
+                      };
                   }
-              }));
+                  
+                  return enhancedSong;
+              });
               
               // 构建推荐消息
-              let recommendMessage = `根据你的情绪和喜好，我为你推荐这些歌曲：`;
+              let recommendMessage = '';
+              
+              // 根据情绪类型定制消息
+              if (emotion === 'happy' || emotion === 'excited') {
+                  recommendMessage = `耶～看到你这么开心真是太棒了！🎉 我为你精心挑选了这些超级欢快的歌曲，一起来high起来吧～🕺💃`;
+              } else if (emotion === 'sad' || emotion === 'lonely') {
+                  recommendMessage = `抱抱你～🫂 难过的时候有我陪着你呢！这些歌曲就像一杯热巧克力，能温暖你的小心心～🧸💕`;
+              } else if (emotion === 'angry') {
+                  recommendMessage = `哎呀，生气啦？深呼吸～😤 这些歌曲可以帮你发泄情绪，有时候大声唱出来就舒服多了！要不要试试看？💪`;
+              } else if (emotion === 'anxious') {
+                  recommendMessage = `别担心，有我在呢～😌 这些超级舒缓的音乐就像是一场温柔的雨，带走你的焦虑，留下平静和美好～✨`;
+              } else if (emotion === 'nostalgic') {
+                  recommendMessage = `啊～回忆杀来袭！🕰️ 这些经典曲目就像打开了记忆的百宝箱，让我们一起沉浸在那些美好的时光里吧～💭`;
+              } else {
+                  recommendMessage = `根据我们的小对话，我特意为你准备了这些超赞的歌曲！💝 希望它们能成为你的新宠～快告诉我你喜欢吗？`;
+              }
               
               // 添加带有推荐的消息
               this.chatMessages.push({
@@ -1195,15 +1210,14 @@ window.app = new Vue({
                   isUser: false,
                   timestamp: new Date(),
                   songs: recommendedSongs,
-                  has_preview_links: result.has_preview_links || true
+                  has_preview_links: true
               });
               
               // 同时更新推荐页面
               this.recommendations = recommendedSongs.map(song => {
                   return {
                       ...song,
-                      recommendationReason: `这首歌曲的风格与你当前的${this.emotionNames[emotion] || emotion}情绪很匹配`,
-                      preview_links: song.preview_links
+                      recommendationReason: song.explanation || `这首歌曲的风格与你当前的${this.emotionNames[emotion] || emotion}情绪很匹配`
                   };
               });
           }
@@ -1228,1545 +1242,218 @@ window.app = new Vue({
           this.isChatLoading = false;
       }
     },
-    
-    // 播放歌曲预览
-    async playSongPreview(song, songTitle, songArtist) {
-        // 获取音频元素
-        const audioPlayer = document.getElementById('audioPlayer');
-        const audioTitle = document.getElementById('audioTitle');
-        const audioArtist = document.getElementById('audioArtist');
-        const audioPlayerContainer = document.getElementById('audioPlayerContainer');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const playPauseIcon = playPauseBtn.querySelector('i');
-        
-        // 设置歌曲信息
-        audioTitle.textContent = songTitle || song.title || '未知歌曲';
-        audioArtist.textContent = songArtist || song.artist || '未知艺术家';
-        
-        // 清除之前的音频URL
-        audioPlayer.src = '';
-        
-        // 显示播放器
-        audioPlayerContainer.classList.remove('hidden');
-        
-        // 尝试从song对象获取预览URL
-        let previewUrl = '';
-        
-        try {
-            // 如果是试听链接
-            if (song.preview_links) {
-                // 打开网易云音乐或Spotify链接
-                const neaseLink = song.preview_links.netease;
-                const spotifyLink = song.preview_links.spotify;
-                
-                // 在新标签页打开网易云音乐
-                window.open(neaseLink, '_blank');
-                
-                // 设置提醒消息
-                this.addNotification(`已在新标签页打开"${songTitle}"的试听链接`, 'is-info');
-                return;
-            }
-            
-            // 如果有直接预览URL
-            if (song.preview_url) {
-                previewUrl = song.preview_url;
-            } 
-            // 如果没有预览URL，尝试使用API获取
-            else {
-                audioTitle.textContent = `加载中: ${songTitle}`;
-                
-                // 替换为实际的API端点
-                const response = await fetch(`/api/song_preview?title=${encodeURIComponent(songTitle)}&artist=${encodeURIComponent(songArtist)}`);
-                
-                if (!response.ok) {
-                    throw new Error('无法获取预览');
-                }
-                
-                const data = await response.json();
-                previewUrl = data.preview_url;
-                
-                if (!previewUrl) {
-                    throw new Error('没有可用的预览');
-                }
-            }
-            
-            // 设置音频来源
-            audioPlayer.src = previewUrl;
-            
-            // 播放音频
-            const playPromise = audioPlayer.play();
-            
-            if (playPromise) {
-                playPromise.then(() => {
-                    // 播放成功
-                    playPauseIcon.classList.remove('fa-play');
-                    playPauseIcon.classList.add('fa-pause');
-                    this.trackPlayStart(song.id || 'unknown', songTitle, songArtist);
-                }).catch(err => {
-                    console.error('播放失败:', err);
-                    // 如果无法自动播放，显示播放按钮
-                    playPauseIcon.classList.remove('fa-pause');
-                    playPauseIcon.classList.add('fa-play');
-                    this.addNotification('无法自动播放，请点击播放按钮', 'is-warning');
-                });
-            }
-        } catch (error) {
-            console.error('预览播放失败:', error);
-            audioTitle.textContent = `${songTitle} (无法预览)`;
-            this.addNotification('无法获取歌曲预览，请尝试其他歌曲', 'is-danger');
-        }
-    },
-    
-    // 播放模拟音频文件
-    generateAndPlayAudio(songId, title, artist) {
-      console.log(`使用模拟音频: [${title} - ${artist}]`);
-      
-      try {
-        const audioPlayer = document.getElementById('audioPlayer');
-        if (!audioPlayer) return;
-        
-        // 使用默认音频文件
-        const defaultAudioPath = "/static/audio/default.mp3";
-        
-        // 根据歌曲ID选择示例音频
-        const sampleAudioPath = `/static/audio/sample${(songId % 15) + 1}.mp3`;
-        
-        // 设置音频元素
-        audioPlayer.src = sampleAudioPath;
-        
-        // 尝试播放音频
-        console.log(`正在播放模拟音频: ${sampleAudioPath}`);
-        
-        audioPlayer.play().catch(err => {
-          console.error('播放失败，尝试通过用户交互触发播放:', err);
-          this.addNotification('请点击播放按钮开始播放', 'is-info');
-        });
-        
-        this.addNotification(`正在播放 "${title} - ${artist}" (模拟音频)`, 'is-info');
-        
-        // 更新播放按钮状态
-        this.updatePlayButtonState();
-      } catch (error) {
-        console.error('播放模拟音频失败:', error);
-        this.handleAudioError(error);
-      }
-    },
-    
-    // 记录开始播放的行为数据
-    trackPlayStart(songId, title, artist) {
-      // 初始化播放行为数据
-      this.playBehavior.currentSongId = songId;
-      this.playBehavior.startTime = new Date();
-      this.playBehavior.playDuration = 0;
-      
-      // 确保行为数据对象存在
-      if (!this.playBehavior.behaviors[songId]) {
-        this.playBehavior.behaviors[songId] = {
-          playCount: 0,
-          skipCount: 0,
-          totalDuration: 0,
-          avgDuration: 0,
-          completionCount: 0,
-          title,
-          artist
-        };
-      }
-      
-      // 为当前播放歌曲增加播放次数
-      this.playBehavior.behaviors[songId].playCount++;
-      
-      console.log(`开始播放歌曲: ${title} - ${artist} [ID: ${songId}]`);
-    },
-    
-    // 跟踪播放结束，更新用户向量
-    trackPlayEnd() {
-      if (!this.currentPlayingSong) return;
-      
-      const songId = this.currentPlayingSong.id;
-      const audioPlayer = document.getElementById('audioPlayer');
-      const playedTime = audioPlayer ? audioPlayer.currentTime : 0;
-      const totalTime = audioPlayer ? audioPlayer.duration : 0;
-      
-      // 如果开始时间存在，计算总播放时长
-      if (this.playBehavior.startTime) {
-        const endTime = new Date();
-        const playDuration = (endTime - this.playBehavior.startTime) / 1000; // 毫秒转秒
-        this.playBehavior.playDuration = playDuration;
-        
-        console.log(`结束播放，总时长: ${playDuration.toFixed(1)}秒`);
-        
-        // 如果有歌曲ID，更新歌曲的行为数据
-        if (songId && this.playBehavior.behaviors[songId]) {
-          const songStats = this.playBehavior.behaviors[songId];
-          
-          // 更新统计数据
-          songStats.totalDuration += playDuration;
-          songStats.avgDuration = songStats.totalDuration / songStats.playCount;
-          
-          // 检查是否是完整播放（播放超过90%视为完整播放）
-          const isFullPlay = (playedTime / totalTime) > 0.9;
-          if (isFullPlay) {
-            songStats.completionCount++;
-          }
-          
-          // 计算完成百分比
-          const completionPercentage = totalTime > 0 ? 
-            Math.min(Math.round((playedTime / totalTime) * 100), 100) : 0;
-          
-          // 发送播放数据
-          this.sendPlaybackData(songId, playDuration, completionPercentage);
-          
-          // 更新用户向量
-          this.updateUserVectorFromPlayBehavior(songId, playDuration, isFullPlay);
-        }
-      }
-      
-      // 检查是否需要持久化播放行为数据
-      this.checkAndPersistPlayBehavior();
-      
-      // 重置当前播放歌曲
-      this.currentPlayingSong = null;
-      this.playBehavior.currentSongId = null;
-      this.playBehavior.startTime = null;
-      this.playBehavior.playDuration = 0;
-    },
-    
-    // 检查播放里程碑，随着播放进度更新用户向量
-    checkPlayMilestone(currentTime) {
-      if (!this.currentPlayingSong) return;
-      
-      const songId = this.currentPlayingSong.id;
-      
-      // 初始化该歌曲的里程碑记录
-      if (!this.reachedMilestones[songId]) {
-        this.reachedMilestones[songId] = {
-          reached10s: false,
-          reached30s: false,
-          reached60s: false,
-          reached120s: false
-        };
-      }
-      
-      // 检查不同的里程碑
-      if (currentTime >= 10 && !this.reachedMilestones[songId].reached10s) {
-        console.log(`歌曲 ${songId} 达到10秒里程碑`);
-        this.reachedMilestones[songId].reached10s = true;
-        this.updateUserVector(songId, 0.1);
-      }
-      
-      if (currentTime >= 30 && !this.reachedMilestones[songId].reached30s) {
-        console.log(`歌曲 ${songId} 达到30秒里程碑`);
-        this.reachedMilestones[songId].reached30s = true;
-        this.updateUserVector(songId, 0.2);
-      }
-      
-      if (currentTime >= 60 && !this.reachedMilestones[songId].reached60s) {
-        console.log(`歌曲 ${songId} 达到60秒里程碑`);
-        this.reachedMilestones[songId].reached60s = true;
-        this.updateUserVector(songId, 0.3);
-      }
-      
-      if (currentTime >= 120 && !this.reachedMilestones[songId].reached120s) {
-        console.log(`歌曲 ${songId} 达到120秒里程碑`);
-        this.reachedMilestones[songId].reached120s = true;
-        this.updateUserVector(songId, 0.4);
-        this.showNotification('您在专注聆听！音乐品味已更新', 'info');
-      }
-    },
-    
-    // 发送播放数据到服务器
-    sendPlaybackData(songId, playedTime, completionPercentage) {
-      // 构建要发送的数据
-      const playbackData = {
-        song_id: songId,
-        played_time: playedTime,
-        completion_percentage: completionPercentage,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log('记录播放数据:', playbackData);
-      
-      // 使用localStorage来存储播放数据，避免API不可用的404错误
-      try {
-        const playbackRecords = JSON.parse(localStorage.getItem('playbackRecords') || '[]');
-        playbackRecords.push(playbackData);
-        localStorage.setItem('playbackRecords', JSON.stringify(playbackRecords));
-        console.log('播放数据已记录到本地存储');
-        
-        // 已登录用户显示通知
-        if (this.isLoggedIn && completionPercentage > 50) {
-          this.addNotification('您的听歌数据已记录，有助于提升推荐精准度', 'is-success');
-        }
-      } catch (error) {
-        console.error('记录播放数据失败:', error);
-      }
-    },
-    
-    // 从播放行为更新用户向量
-    updateUserVectorFromPlayBehavior(songId, duration, isFullPlay) {
-      // 获取对应的歌曲对象
-      const allSongs = [...this.sampleSongs, ...this.recommendations];
-      const song = allSongs.find(s => s.id === songId);
-      if (!song) return;
-      
-      let delta = 0;
-      
-      // 根据播放时长和完整播放状态计算偏好调整值
-      if (isFullPlay) {
-        // 完整播放，明显提高偏好
-        delta = 0.15;
-      } else if (duration >= 15) {
-        // 播放超过15秒但不完整，略微提高偏好
-        delta = 0.08;
-      } else if (duration < 5) {
-        // 播放不到5秒就跳过，降低偏好
-        delta = -0.1;
-      } else if (duration < 10) {
-        // 播放不到10秒，轻微降低偏好
-        delta = -0.05;
-      }
-      
-      // 调整力度较小于显式反馈
-      if (delta !== 0) {
-        this.updateUserVector(song, delta);
-      }
-    },
-    
-    // 检查是否需要持久化播放行为数据
-    checkAndPersistPlayBehavior() {
-      // 计算行为数据总量
-      const behaviorCount = Object.keys(this.playBehavior.behaviors).length;
-      
-      // 如果已经积累了足够多的行为数据，或者有完整播放的歌曲，则持久化
-      const hasFullPlays = Object.values(this.playBehavior.behaviors)
-        .some(behavior => behavior.completionCount > 0);
-      
-      if (behaviorCount >= 3 || hasFullPlays) {
-        this.persistPlayBehavior();
-      }
-    },
-    
-    // 持久化播放行为数据
-    persistPlayBehavior() {
-      console.log('尝试持久化播放行为数据');
-      
-      // 如果没有API，直接保存到本地
-      if (!this.apiBaseUrl) {
-        console.log('API不可用，保存到localStorage');
-        localStorage.setItem('playBehavior', JSON.stringify(this.playBehavior.behaviors));
-        return;
-      }
-      
-      // 如果API可用，尝试发送到服务器
-      // 注意：在模拟环境中，我们不发送真实请求，避免404错误
-      try {
-        console.log('模拟环境：保存播放行为数据到本地存储');
-        localStorage.setItem('playBehavior', JSON.stringify(this.playBehavior.behaviors));
-        
-        // 模拟成功响应
-        console.log('播放行为数据保存成功（模拟）');
-        
-        // 为演示目的，可以添加一个通知
-        this.addNotification('播放行为数据已更新', 'is-success');
-      } catch (error) {
-        console.error('播放行为数据保存失败:', error);
-        // 如果保存失败，添加错误通知
-        this.addNotification('播放行为数据保存失败', 'is-danger');
-      }
-    },
-    
-    // 跟踪播放行为
-    trackPlayBehavior(songObj, action) {
-      if (!songObj) {
-        console.warn('trackPlayBehavior: 无效的歌曲对象');
-        return;
-      }
-      
-      const songId = songObj.id;
-      
-      // 确保存在行为记录
-      if (!this.playBehavior) {
-        this.playBehavior = {
-          behaviors: {},
-          currentSongId: null,
-          startTime: null,
-          playDuration: 0
-        };
-      }
-      
-      if (!this.playBehavior.behaviors[songId]) {
-        this.playBehavior.behaviors[songId] = {
-          playCount: 0,
-          skipCount: 0,
-          totalDuration: 0,
-          avgDuration: 0,
-          completionCount: 0,
-          title: songObj.title || '未知歌曲',
-          artist: songObj.artist || '未知艺术家'
-        };
-      }
-      
-      // 根据动作类型记录不同行为
-      if (action === 'start') {
-        this.playBehavior.behaviors[songId].playCount++;
-        console.log(`开始跟踪歌曲行为: ${songObj.title} - ${songObj.artist}`);
-      } else if (action === 'skip') {
-        this.playBehavior.behaviors[songId].skipCount++;
-        console.log(`歌曲被跳过: ${songObj.title} - ${songObj.artist}`);
-      } else if (action === 'complete') {
-        this.playBehavior.behaviors[songId].completionCount++;
-        console.log(`歌曲完整播放: ${songObj.title} - ${songObj.artist}`);
-      }
-    },
-    
-    // 初始化音乐游戏
-    initMusicGame() {
-      if (this.currentTab === 'game') {
-        // 清除先前的游戏
-        if (musicGame) {
-          musicGame.stopGame();
-        }
-        
-        // 初始化新游戏
-        musicGame = initMusicGame('game-canvas-container', this.handleGameComplete);
-      }
-    },
-    
-    // 处理游戏完成
-    handleGameComplete(results) {
-      console.log('游戏结果:', results);
-      this.gameResults = results;
-      this.showGameResults = true;
-      
-      // 添加情感分析
-      const dominantGenre = Object.entries(results)
-          .sort((a, b) => b[1] - a[1])[0][0];
-          
-      // 使用情感检测器将音乐风格映射到情感
-      const emotionResult = this.emotionDetector.mapGenreToEmotion(dominantGenre);
-      this.userEmotion = emotionResult;
-      
-      this.addNotification(`根据您喜欢的${dominantGenre}音乐，分析出您可能的情绪是: ${emotionResult.emotion}`, 'is-info');
-    },
-    
-    // 使用游戏结果获取推荐
-    useGameResultsForRecommendations() {
-      if (!this.gameResults) {
-          this.addNotification('请先完成音乐游戏', 'is-warning');
-          return;
-      }
-      
-      this.loading = true;
-      this.currentTab = 'recommend'; // 确保切换到推荐页面
-      
-      // 如果已经有情绪分析，使用它来获取推荐
-      if (this.userEmotion) {
-          // 获取最受欢迎的流派
-          const genres = Object.entries(this.gameResults)
-              .sort((a, b) => b[1] - a[1])
-              .map(entry => entry[0]);
-              
-          // 前端模拟实现：基于随机挑选歌曲并添加推荐理由
-          setTimeout(() => {
-              this.recommendations = this.sampleSongs
-                  .sort(() => 0.5 - Math.random())
-                  .slice(0, 6)
-                  .map(song => {
-                      return {
-                          ...song,
-                          // 加入游戏收集到的流派信息
-                          recommendationReason: `根据您在游戏中喜欢的${genres[0]}音乐，以及检测到的"${this.userEmotion.emotion}"情绪，${this.emotionDetector.generateRecommendationReason(this.userEmotion.emotion)}`
-                      };
-                  });
-              
-              this.loading = false;
-              this.addNotification('根据游戏结果生成了新推荐', 'is-success');
-          }, 1000);
-      } else {
-          // 如果没有情绪分析，使用原本的游戏结果获取推荐
-          setTimeout(() => {
-              this.recommendations = this.sampleSongs
-                  .sort(() => 0.5 - Math.random())
-                  .slice(0, 6);
-              this.loading = false;
-              this.addNotification('根据游戏结果生成了新推荐', 'is-success');
-          }, 1000);
-      }
-      
-      this.showGameResults = false;
-    },
-    
-    // 添加通知
-    addNotification(message, type = 'is-info') {
-      const id = Date.now();
-      const icon = this.getNotificationIcon(type);
-      
-      this.notifications.push({
-        id,
-        message,
-        type,
-        icon
-      });
-      
-      // 5秒后自动移除
-      setTimeout(() => {
-        this.removeNotification(id);
-      }, 5000);
-    },
-    
-    // 获取通知图标
-    getNotificationIcon(type) {
-      switch (type) {
-        case 'is-success': return 'check-circle';
-        case 'is-danger': return 'exclamation-circle';
-        case 'is-warning': return 'exclamation-triangle';
-        default: return 'info-circle';
-      }
-    },
-    
-    // 移除通知
-    removeNotification(id) {
-      this.notifications = this.notifications.filter(n => n.id !== id);
-    },
-    
-    // 初始化情感检测器
-    initEmotionDetector() {
-      this.emotionDetector = new EmotionDetector();
-    },
-    
-    // 切换情感输入界面
-    toggleEmotionInput() {
-      this.showEmotionDetector = !this.showEmotionDetector;
-      if (this.showEmotionDetector) {
-          // 如果打开了情感输入，滚动到该区域
-          this.$nextTick(() => {
-              const container = document.querySelector('.emotion-input-container');
-              if (container) {
-                  container.scrollIntoView({ behavior: 'smooth' });
-              }
-          });
-      }
-    },
-    
-    // 处理情感输入
-    async detectEmotion() {
-      if (!this.emotionInput.trim()) {
-          this.addNotification('请输入您当前的心情', 'is-warning');
-          return;
-      }
-      
-      this.addNotification('正在分析您的情绪...', 'is-info');
-      const result = await this.emotionDetector.detectFromText(this.emotionInput);
-      
-      this.userEmotion = result;
-      this.addNotification(`检测到您当前的情绪: ${result.emotion}`, 'is-success');
-      
-      // 自动获取情感推荐
-      this.getEmotionBasedRecommendations();
-    },
-    
-    // 获取基于情感的音乐推荐
-    async getEmotionBasedRecommendations() {
-      if (!this.userEmotion) {
-          this.addNotification('请先输入您的心情', 'is-warning');
-          return;
-      }
-      
-      this.isLoadingRecommendations = true;
-      const emotion = this.userEmotion.emotion;
-      
-      try {
-        // 这里可以添加实际的API调用
-        // const response = await axios.get(`/api/emotion_recommendations?emotion=${emotion}`);
-          // this.recommendations = response.data.recommendations;
-          
-        // 模拟推荐结果
+
+    // 模拟后端响应，用于本地测试
+    simulateBackendResponse(userMessage) {
+      return new Promise((resolve) => {
         setTimeout(() => {
-          // 情感推荐理由模板
-          const emotionReasons = {
-            "开心": [
-              "这首欢快的歌曲会让您的好心情持续更久",
-              "旋律轻快，完美匹配您当前的开心情绪",
-              "节奏明快，适合您现在愉悦的心情",
-              "这首歌会让您的笑容更灿烂"
-            ],
-            "伤心": [
-              "这首温柔的歌曲能够抚慰您的伤感情绪",
-              "歌词中的共鸣或许能给您带来一些安慰",
-              "舒缓的旋律会帮助您平静下来",
-              "情感丰富的音乐，适合在您感到低落时聆听"
-            ],
-            "平静": [
-              "这首舒缓的音乐会维持您内心的平静",
-              "温和的旋律与您当前的平静心情相得益彰",
-              "这首歌的节奏可以帮助您保持内心的宁静",
-              "轻柔优美的曲调，适合您现在恬静的心境"
-            ],
-            "兴奋": [
-              "这首节奏强劲的歌曲会让您的兴奋感持续",
-              "动感的节拍会让您的热情更加澎湃",
-              "这首歌的能量完美匹配您现在的兴奋状态",
-              "激昂的旋律，让您的热情继续高涨"
-            ],
-            "疲惫": [
-              "这首轻松的曲子会帮助您舒缓疲劳",
-              "平缓的旋律能让您放松紧绷的神经",
-              "这首歌能够为您创造一个放松的氛围",
-              "舒适的音乐，帮您缓解疲惫感"
-            ],
-            "焦虑": [
-              "这首歌的平稳节奏有助于缓解您的焦虑",
-              "舒缓的旋律能够帮助您找回内心的平静",
-              "这首歌的和声能够减轻您的紧张情绪",
-              "温柔的音乐，让您的担忧慢慢消散"
-            ],
-            "愤怒": [
-              "这首歌的力量感能够帮您宣泄内心的愤怒",
-              "强烈的节奏与您的情绪产生共鸣",
-              "这首歌可以帮助您释放压抑的情感",
-              "有力的旋律，帮您转化负面情绪"
-            ],
-            "怀念": [
-              "这首充满回忆感的音乐适合您怀旧的心情",
-              "柔和的旋律会唤起美好的回忆",
-              "这首歌的情感与您的怀念之情相呼应",
-              "恬静的音乐，让您沉浸在美好的回忆中"
-            ],
-            "浪漫": [
-              "这首浪漫的歌曲会让您的心情更加甜蜜",
-              "温馨的旋律与您当前的浪漫情绪相得益彰",
-              "这首歌的优美旋律会增添您的浪漫情怀",
-              "柔情的音乐，为您的浪漫心情锦上添花"
-            ],
-            "孤独": [
-              "这首歌的情感能够陪伴您度过孤独时光",
-              "深沉的旋律与您的情绪产生共鸣",
-              "这首歌仿佛在诉说着您内心的感受",
-              "细腻的音乐，让您在孤独中感受温暖"
-            ]
+          // 分析用户消息中的情绪关键词
+          const emotionKeywords = {
+            'happy': ['高兴', '开心', '快乐', '兴奋', '喜悦', '愉快', 'happy', 'excited', 'joy'],
+            'sad': ['难过', '伤心', '悲伤', '失落', '低落', '消沉', 'sad', 'unhappy', 'depressed'],
+            'angry': ['生气', '愤怒', '恼火', '烦躁', '不满', 'angry', 'mad', 'furious'],
+            'anxious': ['焦虑', '紧张', '担心', '不安', '压力', 'anxious', 'nervous', 'stressed'],
+            'nostalgic': ['怀旧', '回忆', '思念', '想念', 'nostalgia', 'memories'],
+            'lonely': ['孤独', '寂寞', '孤单', 'lonely', 'alone'],
+            'hopeful': ['希望', '期待', '向往', 'hopeful', 'optimistic'],
+            'calm': ['平静', '放松', '安宁', '舒适', 'calm', 'relaxed', 'peaceful']
           };
           
-          // 获取当前情感的推荐理由，如果没有匹配的情感，使用默认理由
-          const currentEmotionReasons = emotionReasons[emotion] || [
-            `这首歌非常适合您现在"${emotion}"的心情`,
-            `歌曲的情感与您的"${emotion}"心情相呼应`,
-            `为您的"${emotion}"心情量身打造的音乐体验`,
-            `这首歌会让您的"${emotion}"情绪得到共鸣`
-          ];
+          // 检测艺术家名称
+          const artists = ['周杰伦', '林俊杰', '陈奕迅', '王力宏', '张学友', '刘德华', 
+                          'Taylor Swift', 'Ed Sheeran', 'Adele', 'Bruno Mars', 'Beyoncé', 
+                          'Coldplay', 'Drake', 'The Weeknd', 'Queen', 'Michael Jackson'];
           
-          // 基于情绪推荐歌曲
-          this.recommendations = this.sampleSongs
-              .sort(() => 0.5 - Math.random())
-              .slice(0, 8)
-              .map((song, index) => {
-                  // 随机选择一个当前情感的推荐理由
-                  const reasonIndex = Math.floor(Math.random() * currentEmotionReasons.length);
-                  const recommendReason = currentEmotionReasons[reasonIndex];
-                  
-                  return {
-                      ...song,
-                      id: 200 + index,  // 为了避免ID冲突
-                      source: 'emotion',  // 标记为情感推荐
-                      preview_url: song.preview_url || 'https://p.scdn.co/mp3-preview/3eb16018c2a700240e9dfb8817b6f2d041f15eb1',
-                      recommendationReason: recommendReason,
-                      likeCount: Math.floor(Math.random() * 1000) + 100,
-                      dislikeCount: Math.floor(Math.random() * 100),
-                  };
-              });
+          // 检测音乐类型
+          const genres = ['流行', '摇滚', '嘻哈', '爵士', '古典', '民谣', '电子', 'R&B', '蓝调', '乡村', 
+                        'pop', 'rock', 'hip-hop', 'jazz', 'classical', 'folk', 'electronic', 'R&B', 'blues', 'country'];
           
-          this.isLoadingRecommendations = false;
-          this.currentTab = 'recommend';
-          this.addNotification(`已为您生成 "${emotion}" 情绪下的个性化推荐`, 'is-success');
+          // 检测常见场景
+          const scenes = ['工作', '学习', '运动', '睡觉', '派对', '放松', '冥想', '开车', 
+                        'work', 'study', 'workout', 'sleep', 'party', 'relax', 'meditation', 'driving'];
           
-          // 默认选择情感推荐分类
-          this.recommendationCategory = 'emotion';
-          
-          // 重置加载更多状态
-          this.hasMoreRecommendations = true;
-          this.currentPage = 1;
-        }, 1500);
-      } catch (error) {
-        console.error('获取情感推荐失败:', error);
-        this.isLoadingRecommendations = false;
-        this.addNotification('获取情感推荐失败', 'is-danger');
-      }
-    },
-    
-    // 导航到情感推荐页面
-    navigateToEmotionRecommend() {
-      this.currentTab = 'recommend'; // 切换到推荐标签页
-      this.$nextTick(() => {
-        this.showEmotionDetector = true; // 显示情感输入界面
-        // 滚动到情感输入区域
-        setTimeout(() => {
-          const container = document.querySelector('.emotion-input-container');
-          if (container) {
-            container.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 300);
-      });
-    },
-    
-    // 使用建议的聊天提示
-    useSuggestion(suggestion) {
-      this.currentMessage = suggestion;
-      this.sendMessage();
-    },
-    
-    // 初始化页面按钮事件绑定
-    initButtonEvents() {
-      console.log('初始化导航事件...');
-      
-        // 为所有带有data-tab属性的元素添加点击事件
-      const tabButtons = document.querySelectorAll('[data-tab]');
-      console.log(`找到 ${tabButtons.length} 个标签按钮`);
-      
-      tabButtons.forEach(el => {
-        el.removeEventListener('click', this.tabClickHandler); // 先移除可能存在的事件处理器
-        
-          el.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tab = el.getAttribute('data-tab');
-            if (tab) {
-            console.log(`切换到标签页: ${tab}`);
-              this.currentTab = tab;
-            
-            // 添加样式变化反馈
-            tabButtons.forEach(btn => btn.classList.remove('is-active'));
-            el.classList.add('is-active');
-            }
-          });
-        });
-        
-      // 初始化音乐游戏预览区域的开始游戏按钮
-      const gameStartBtn = document.querySelector('#music-game-container button');
-      if (gameStartBtn) {
-        gameStartBtn.addEventListener('click', () => {
-          this.currentTab = 'game';
-          console.log('切换到游戏标签页');
-        });
-      }
-      
-      // 初始化推荐刷新按钮动画效果
-      const refreshBtn = document.querySelector('button[title="刷新推荐"]');
-      if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-          refreshBtn.classList.add('refresh-pulse');
-          setTimeout(() => {
-            refreshBtn.classList.remove('refresh-pulse');
-          }, 1000);
-          
-          this.refreshRecommendations(false);
-        });
-      }
-    },
-    
-    // 通过ID查找歌曲
-    findSongById(id) {
-      // 在sampleSongs和recommendations中查找
-      const allSongs = [...this.sampleSongs, ...this.recommendations];
-      return allSongs.find(song => song.id === parseInt(id));
-    },
-    
-    // 添加新的方法用于保存心情
-    submitMood() {
-      if (this.emotionInput) {
-        // 保存用户心情数据
-        this.userEmotion = {
-          emotion: this.emotionInput,
-          timestamp: new Date().toISOString()
-        };
-        this.addNotification(
-          this.currentLanguage === 'zh' ? 
-          '已记录您的心情！' : 
-          'Your mood has been recorded!', 
-          'is-success'
-        );
-      }
-    },
-    
-    // 保存用户偏好设置
-    saveUserPreferences() {
-      // 收集表单数据
-      const preferences = {
-        musicStyles: this.selectedMusicStyles,
-        musicScenes: this.selectedMusicScenes,
-        musicLanguages: this.selectedMusicLanguages,
-        musicEras: this.selectedMusicEras,
-        favoriteArtists: this.favoriteArtists,
-        dailyListeningTime: this.dailyListeningTime
-      };
-      
-      // 保存到本地存储或发送到服务器
-      localStorage.setItem('userMusicPreferences', JSON.stringify(preferences));
-      
-      // 添加通知
-      this.addNotification(
-        this.currentLanguage === 'zh' ? 
-        '偏好设置已保存！' : 
-        'Preferences saved!', 
-        'is-success'
-      );
-    },
-    
-    // 获取当前问题步骤
-    getCurrentQuestionStep() {
-        // 确保questionSteps存在
-        if (!this.questionSteps || !this.questionSteps.length) {
-            return {
-                title: '音乐风格偏好',
-                subtitle: '请选择您喜欢的音乐风格 (可多选)',
-                dataCategory: 'genres',
-                options: this.musicStyleOptions || []
-            };
-        }
-        return this.questionSteps.find(step => step.id === this.currentQuestionStep) || this.questionSteps[0];
-    },
-    
-    // 检查选项是否被选中
-    isOptionSelected(category, value) {
-        if (!this.questionnaireAnswers[category]) {
-            return false;
-        }
-        return this.questionnaireAnswers[category].indexOf(value) !== -1;
-    },
-    
-    // 切换问卷选项选择状态
-    toggleSelection(category, value) {
-        if (!this.questionnaireAnswers[category]) {
-            this.questionnaireAnswers[category] = [];
-        }
-        
-        const index = this.questionnaireAnswers[category].indexOf(value);
-        if (index === -1) {
-            this.questionnaireAnswers[category].push(value);
-        } else {
-            this.questionnaireAnswers[category].splice(index, 1);
-        }
-    },
-    
-    // 下一个问题
-    nextQuestionStep() {
-        if (this.currentQuestionStep < this.totalQuestionSteps) {
-            this.currentQuestionStep++;
-            this.questionnaireProgress = (this.currentQuestionStep / this.totalQuestionSteps) * 100;
-        } else {
-            // 提交问卷
-            this.submitQuestionnaire();
-        }
-    },
-    
-    // 上一个问题
-    prevQuestionStep() {
-        if (this.currentQuestionStep > 1) {
-            this.currentQuestionStep--;
-            this.questionnaireProgress = (this.currentQuestionStep / this.totalQuestionSteps) * 100;
-        }
-    },
-    
-    // 提交问卷
-    submitQuestionnaire() {
-        // 显示成功消息
-        this.addNotification(
-            this.currentLanguage === 'zh' ? 
-            '问卷提交成功！感谢您的参与。' : 
-            'Questionnaire submitted successfully! Thank you for your participation.',
-            'is-success'
-        );
-        
-        // 重置问卷状态
-        this.showQuestionnaireUI = false;
-        this.currentQuestionStep = 1;
-    },
-    
-    // 更新用户向量
-    updateUserVector(song, delta) {
-      if (!this.userVector.lastUpdated) {
-        this.userVector.lastUpdated = new Date();
-      }
-      
-      // 标记向量已修改
-      this.userVector.dirtyFlag = true;
-      
-      // 1. 更新艺术家偏好
-      if (song.artist) {
-        if (!this.userVector.artists[song.artist]) {
-          this.userVector.artists[song.artist] = 0.5; // 初始中性值
-        }
-        
-        // 更新艺术家偏好值，确保在0-1范围内
-        this.userVector.artists[song.artist] = Math.max(0, Math.min(1, 
-          this.userVector.artists[song.artist] + delta
-        ));
-        
-        console.log(`艺术家[${song.artist}]偏好更新为: ${this.userVector.artists[song.artist]}`);
-      }
-      
-      // 2. 更新流派偏好
-      if (song.genre) {
-        if (!this.userVector.genres[song.genre]) {
-          this.userVector.genres[song.genre] = 0.5; // 初始中性值
-        }
-        
-        // 更新流派偏好值，确保在0-1范围内
-        this.userVector.genres[song.genre] = Math.max(0, Math.min(1, 
-          this.userVector.genres[song.genre] + delta
-        ));
-        
-        console.log(`流派[${song.genre}]偏好更新为: ${this.userVector.genres[song.genre]}`);
-      }
-      
-      // 3. 根据歌曲特征更新音乐特征偏好（如果有）
-      if (song.features) {
-        Object.keys(song.features).forEach(feature => {
-          if (!this.userVector.features[feature]) {
-            this.userVector.features[feature] = 0.5; // 初始中性值
-          }
-          
-          // 更新特征偏好值，确保在0-1范围内
-          this.userVector.features[feature] = Math.max(0, Math.min(1, 
-            this.userVector.features[feature] + (delta * 0.5) // 特征影响较小
-          ));
-        });
-      }
-      
-      // 更新变化计数
-      this.userVectorChangeCount++;
-      
-      // 检查是否需要自动刷新推荐
-      if (this.autoRefreshEnabled && 
-          this.userVectorChangeCount >= this.minUserVectorChangesForRefresh &&
-          this.currentTab === 'recommend') {
-        this.refreshRecommendations(true);
-        // 重置计数
-        this.userVectorChangeCount = 0;
-      }
-    },
-    
-    // 检查是否需要持久化用户向量（当有一定量的更改或经过一定时间）
-    checkAndPersistUserVector() {
-      // 如果向量已被修改
-      if (this.userVector.dirtyFlag) {
-        const now = new Date();
-        const timeSinceLastUpdate = this.userVector.lastUpdated ? 
-          (now - this.userVector.lastUpdated) / 1000 : 0; // 转换为秒
-        
-        // 如果距离上次更新超过2分钟，或者这是第一次更新，则持久化
-        if (!this.userVector.lastUpdated || timeSinceLastUpdate > 120) {
-          this.persistUserVector();
-        }
-      }
-    },
-    
-    // 持久化用户向量到数据库
-    persistUserVector() {
-      console.log('持久化用户向量到数据库:', this.userVector);
-      
-      // 更新最后更新时间
-      this.userVector.lastUpdated = new Date();
-      // 重置脏标记
-      this.userVector.dirtyFlag = false;
-      
-      // 直接保存到本地存储
-      try {
-        const userData = {
-          user_id: this.currentUser ? this.currentUser.id : 'anonymous',
-          vector: {
-            artists: this.userVector.artists,
-            genres: this.userVector.genres,
-            features: this.userVector.features
-          },
-          timestamp: new Date().toISOString()
-        };
-        
-        localStorage.setItem('user_vector', JSON.stringify(userData));
-        console.log('用户向量已保存到本地存储');
-        
-        // 用户向量保存后，考虑刷新推荐
-        if (this.currentTab === 'recommend' && this.autoRefreshEnabled) {
-          // 检查是否有显著变化需要刷新
-          if (this.userVectorChangeCount >= this.minUserVectorChangesForRefresh) {
-            this.refreshRecommendations(true);
-            this.userVectorChangeCount = 0;
-          }
-        }
-        
-        return Promise.resolve();
-      } catch (error) {
-        console.error('用户向量保存失败:', error);
-        // 恢复脏标记，以便下次尝试保存
-        this.userVector.dirtyFlag = true;
-        
-        // 添加错误通知
-        this.addNotification('用户偏好数据保存失败，请稍后再试', 'is-danger');
-        
-        return Promise.reject(error);
-      }
-    },
-    
-    // 处理音频播放事件
-    handleAudioPlay() {
-      console.log("音频播放开始:", this.currentPlayingSong.title);
-      this.isPlaying = true;
-      
-      // 添加进度条更新定时器
-      this.progressUpdateInterval = setInterval(() => {
-        this.updateAudioProgress();
-      }, 1000);
-      
-      // 记录播放开始时间
-      this.playStartTime = new Date().getTime();
-    },
-    
-    // 处理音频暂停事件
-    handleAudioPause() {
-      console.log("音频播放暂停:", this.currentPlayingSong?.title);
-      this.isPlaying = false;
-      
-      // 清除进度条更新定时器
-      clearInterval(this.progressUpdateInterval);
-      
-      // 当音频暂停时更新按钮状态
-      this.updatePlayButtonState();
-      
-      // 累计播放时间
-      if (this.playStartTime) {
-        const pauseTime = new Date().getTime();
-        this.totalPlayTime += (pauseTime - this.playStartTime) / 1000;
-        console.log(`累计播放时间: ${this.totalPlayTime}秒`);
-      }
-    },
-    
-    updateAudioProgress() {
-      const audio = document.getElementById('audioPlayer');
-      const progressBar = document.getElementById('audioProgressBar');
-      const durationElement = document.getElementById('audioDuration');
-      
-      if (!audio || !progressBar) {
-        return;
-      }
-      
-      try {
-        // 计算当前进度百分比
-        const currentTime = audio.currentTime || 0;
-        const duration = audio.duration || 0;
-        
-        if (!isNaN(duration) && duration > 0) {
-          // 更新进度条
-          this.progressPercentage = (currentTime / duration) * 100;
-          progressBar.style.width = `${this.progressPercentage}%`;
-          
-          // 更新时间显示
-          if (durationElement) {
-            const formatTimeDigits = (time) => {
-              const minutes = Math.floor(time / 60);
-              const seconds = Math.floor(time % 60);
-              return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-            };
-            
-            durationElement.textContent = `${formatTimeDigits(currentTime)} / ${formatTimeDigits(duration)}`;
-          }
-          
-          // 检查播放里程碑
-          this.checkPlayMilestone(currentTime);
-        }
-      } catch (e) {
-        console.error('更新进度条失败:', e);
-      }
-    },
-    
-    setProgress(event) {
-      const audio = document.getElementById('audioPlayer');
-      const progressContainer = document.getElementById('audioProgressContainer');
-      
-      if (!audio || !progressContainer) {
-        return;
-      }
-      
-      try {
-        // 获取点击位置相对于进度条容器的位置
-        const rect = progressContainer.getBoundingClientRect();
-        const clickPos = event.clientX - rect.left;
-        const containerWidth = rect.width;
-        
-        // 计算百分比
-        const percentage = (clickPos / containerWidth);
-        
-        // 设置音频当前播放位置
-        if (!isNaN(audio.duration) && audio.duration > 0) {
-          audio.currentTime = percentage * audio.duration;
-          
-          // 立即更新进度条显示
-          this.updateAudioProgress();
-          
-          console.log(`设置播放进度: ${Math.round(percentage * 100)}%`);
-        }
-      } catch (e) {
-        console.error('设置播放进度失败:', e);
-      }
-    },
-    
-    // 处理音频结束事件
-    handleAudioEnded() {
-      console.log('音频播放结束');
-      
-      // 更新播放按钮状态
-      this.updatePlayButtonState();
-      
-      // 获取目前正在播放的歌曲ID来记录行为
-      if (this.currentPlayingSong) {
-        this.trackPlayEnd();
-        
-        // 清除当前播放歌曲信息
-        this.currentPlayingSong = null;
-        
-        // 重置已达到的里程碑
-        this.reachedMilestones = [];
-      }
-      
-      // 隐藏播放器（可选，根据UI需求）
-      // document.getElementById('audioPlayerContainer').classList.add('hidden');
-    },
-
-    // 处理音频错误
-    handleAudioError(error) {
-      console.error('音频播放错误:', error);
-      
-      // 设置默认错误信息
-      let errorMessage = '音频播放出错，请稍后再试';
-      let errorType = 'is-warning';
-      
-      // 检查错误类型
-      if (error) {
-        if (error.name) {
-          switch (error.name) {
-            case 'NotSupportedError':
-              errorMessage = '您的浏览器不支持此音频格式，将为您生成替代音频';
-              // 不显示给用户，由playSongPreview处理
-              return;
-            case 'NotAllowedError':
-              errorMessage = '浏览器阻止了自动播放，请点击播放按钮开始播放';
-              errorType = 'is-info';
-              break;
-            case 'NotFoundError':
-              errorMessage = '找不到音频资源，正在为您生成音乐预览';
-              errorType = 'is-info';
-              break;
-            case 'NetworkError':
-              errorMessage = '网络连接问题，正在使用离线模式';
-              break;
-            case 'AbortError':
-              // 用户手动中止，不显示错误
-              return;
-            default:
-              // Edge和Safari可能报告不同的错误
-              if (error.message && error.message.includes('source')) {
-                errorMessage = '无法加载音频源，将为您生成替代音频';
-                return; // 不显示给用户
-              }
-          }
-        } else if (error.type === 'error') {
-          // 媒体元素错误事件
-          errorMessage = '音频加载失败，正在为您生成音乐预览';
-          return; // 不显示给用户
-        }
-      }
-      
-      // 显示错误通知（如果需要）
-      if (errorType !== 'is-info') {
-        this.addNotification(errorMessage, errorType);
-      }
-      
-      // 更新播放统计
-      if (this.playBehavior.currentSongId) {
-        const songId = this.playBehavior.currentSongId;
-        if (this.playBehavior.behaviors[songId]) {
-          this.playBehavior.behaviors[songId].errorCount = 
-            (this.playBehavior.behaviors[songId].errorCount || 0) + 1;
-        }
-      }
-      
-      // 重置播放状态
-      this.isPlaying = false;
-      this.updatePlayButtonState();
-    },
-
-    // 检查播放里程碑，用于隐式反馈
-    checkPlayMilestone(currentTime) {
-      // 检查是否达到播放里程碑并更新用户向量
-      if (!this.currentPlayingSong || !this.currentPlayingSong.id) return;
-      
-      const milestones = [
-        { time: 10, reached: false, weight: 0.1 },
-        { time: 30, reached: false, weight: 0.3 },
-        { time: 60, reached: false, weight: 0.6 },
-        { time: 120, reached: false, weight: 1.0 }
-      ];
-      
-      // 找到当前达到的最高里程碑
-      let highestMilestone = null;
-      for (const milestone of milestones) {
-        if (currentTime >= milestone.time && !this.reachedMilestones.includes(milestone.time)) {
-          highestMilestone = milestone;
-          this.reachedMilestones.push(milestone.time);
-        }
-      }
-      
-      // 如果达到新的里程碑，更新用户向量
-      if (highestMilestone) {
-        console.log(`达到播放里程碑: ${highestMilestone.time}秒，权重: ${highestMilestone.weight}`);
-        
-        // 查找对应的歌曲信息
-        const allSongs = [...this.sampleSongs, ...this.recommendations];
-        const song = allSongs.find(s => s.id === this.currentPlayingSong.id);
-        
-        // 更新用户向量（隐式反馈）
-        if (song) {
-          // 创建向量信息
-          const songVector = {
-            artist: song.artist,
-            genre: song.genre,
-            features: song.features || {}
+          // 定义模拟响应对象
+          let response = {
+            message: '',
+            emotion: 'neutral',
+            emotion_data: {
+              intensity: 0.5,
+              description: '情绪平静',
+              music_suggestion: '流行音乐'
+            },
+            recommendations: []
           };
           
-          // 更新用户向量
-          this.updateUserVector(songVector, highestMilestone.weight);
+          // 检测情绪
+          let detectedEmotion = 'neutral';
+          let needRecommendation = false;
+          let artist = null;
+          let genre = null;
+          let scene = null;
           
-          // 发送隐式反馈到服务器
-          this.sendImplicitFeedback(this.currentPlayingSong.id, "play_milestone", highestMilestone.time);
-        }
-      }
-    },
-    
-    sendImplicitFeedback(songId, action, value) {
-      // 向服务器发送隐式反馈数据
-      if (!songId) return;
-      
-      const feedbackData = {
-        song_id: songId,
-        action: action,
-        value: value,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log("发送隐式反馈:", feedbackData);
-      
-      // 在模拟环境中，总是存储到本地
-      try {
-        const implicitFeedback = JSON.parse(localStorage.getItem('implicitFeedback') || '[]');
-        implicitFeedback.push(feedbackData);
-        localStorage.setItem('implicitFeedback', JSON.stringify(implicitFeedback));
-        console.log('隐式反馈已保存到本地存储');
-      } catch (error) {
-        console.error('保存隐式反馈失败:', error);
-      }
-    },
-    
-    // 添加刷新推荐的方法
-    refreshRecommendations(isAutoRefresh = false) {
-      if (this.isLoadingRecommendations) {
-        console.log('已经在加载推荐中，忽略此次刷新请求');
-        return;
-      }
-      
-      console.log(`${isAutoRefresh ? '自动' : '手动'}刷新推荐开始`);
-      
-      // 如果没有评分过足够的歌曲，则不刷新
-      if (!this.hasRatedEnoughSongs) {
-        if (!isAutoRefresh) {
-          this.addNotification('请至少对5首歌曲进行评分', 'is-warning');
-        }
-        return;
-      }
-      
-      this.isLoadingRecommendations = true;
-      
-      // 首先切换到推荐页面（如果不是自动刷新）
-      if (!isAutoRefresh) {
-        this.currentTab = 'recommend';
-      }
-      
-      // 生成基于最新用户向量的推荐
-      setTimeout(() => {
-        // 保存当前推荐的前3首，以便展示算法如何调整推荐
-        const previousTopRecommendations = this.recommendations.slice(0, 3);
-        
-        // 根据用户向量生成新的推荐
-        this.generateRecommendationsFromUserVector();
-        
-        // 标记最后更新时间
-        this.recommendationsLastUpdated = new Date();
-        
-        this.isLoadingRecommendations = false;
-        
-        // 显示通知（如果不是静默刷新）
-        if (!isAutoRefresh) {
-          this.addNotification('已根据您的最新偏好刷新推荐', 'is-success');
-        } else {
-          // 如果是自动刷新且推荐有明显变化，通知用户
-          const newTopSongs = this.recommendations.slice(0, 3);
-          const hasSignificantChanges = newTopSongs.some(newSong => 
-            !previousTopRecommendations.some(oldSong => oldSong.id === newSong.id)
-          );
-          
-          if (hasSignificantChanges) {
-            this.addNotification('基于您的最新偏好，推荐已自动更新', 'is-info');
+          // 检查是否有情绪关键词
+          for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+            for (const keyword of keywords) {
+              if (userMessage.toLowerCase().includes(keyword.toLowerCase())) {
+                detectedEmotion = emotion;
+                needRecommendation = true;
+                break;
+              }
+            }
           }
-        }
-      }, isAutoRefresh ? 1000 : 1500); // 自动刷新速度稍快
-    },
-    
-    // 生成基于用户向量的推荐
-    generateRecommendationsFromUserVector() {
-      console.log('生成基于用户向量的推荐...');
-      
-      // 确保用户向量数据存在
-      if (!this.userVector || 
-          !this.userVector.artists || 
-          !this.userVector.genres || 
-          !this.userVector.features) {
-        // 初始化用户向量
-        this.userVector = {
-          artists: {},
-          genres: {},
-          features: {}
-        };
-        
-        console.log('初始化用户向量');
-      }
-      
-      // 分析用户向量数据
-      const favoriteGenres = Object.entries(this.userVector.genres)
-        .filter(([_, score]) => score > 0.5) // 筛选高分流派
-        .sort((a, b) => b[1] - a[1]) // 按分数从高到低排序
-        .map(([genre]) => genre); // 只保留流派名称
-      
-      const favoriteArtists = Object.entries(this.userVector.artists)
-        .filter(([_, score]) => score > 0.5) // 筛选高分艺术家
-        .sort((a, b) => b[1] - a[1]) // 按分数从高到低排序
-        .map(([artist]) => artist); // 只保留艺术家名称
-      
-      // 收集可能的低评分特征（用于排除不喜欢的音乐特征）
-      const dislikedFeatures = Object.entries(this.userVector.features)
-        .filter(([_, score]) => score < 0.3) // 筛选低分特征
-        .map(([feature]) => feature);
-      
-      console.log('推荐基于:', {
-        favoriteGenres, 
-        favoriteArtists, 
-        dislikedFeatures
-      });
-      
-      // 这里仅是模拟，实际项目应调用后端API
-      // 模拟不同来源的推荐（算法、基于情感等）
-      const algorithmRecommendations = this.mockAlgorithmRecommendations(
-        favoriteGenres, 
-        favoriteArtists, 
-        dislikedFeatures
-      );
-      
-      // 如果已有情感推荐，保留它们但放到推荐列表后面
-      const emotionRecommendations = this.recommendations
-        .filter(song => song.source === 'emotion');
-      
-      // 合并推荐结果，确保不重复
-      const combinedRecommendations = [...algorithmRecommendations];
-      
-      // 合并后添加情感推荐（确保不重复）
-      emotionRecommendations.forEach(song => {
-        if (!combinedRecommendations.some(rec => rec.id === song.id)) {
-          combinedRecommendations.push(song);
-        }
-      });
-      
-      // 更新推荐列表
-      this.recommendations = combinedRecommendations;
-      this.hasMoreRecommendations = true;
-      this.currentPage = 1;
-      this.recommendationCategory = 'all'; // 默认显示所有推荐
-    },
-    
-    // 模拟算法推荐（模拟基于用户向量的算法）
-    mockAlgorithmRecommendations(favoriteGenres, favoriteArtists, dislikedFeatures) {
-      // 从样本歌曲中筛选出匹配用户偏好的歌曲
-      let candidateSongs = this.sampleSongs.filter(song => {
-        // 排除已评分的歌曲
-        if (song.rating) return false;
-        
-        // 如果艺术家匹配用户喜好，增加推荐概率
-        const isArtistMatch = favoriteArtists.includes(song.artist);
-        
-        // 如果流派匹配用户喜好，增加推荐概率
-        const isGenreMatch = song.genre && favoriteGenres.includes(song.genre);
-        
-        // 基础概率 + 匹配因素
-        const baseChance = 0.2;
-        const matchChance = (isArtistMatch ? 0.4 : 0) + (isGenreMatch ? 0.3 : 0);
-        
-        // 决定是否推荐这首歌
-        return Math.random() < (baseChance + matchChance);
-      });
-      
-      // 确保至少有4首歌
-      if (candidateSongs.length < 4) {
-        // 如果候选歌曲不足，添加一些随机歌曲（但排除已评分的）
-        const additionalSongs = this.sampleSongs
-          .filter(song => !song.rating && !candidateSongs.some(c => c.id === song.id))
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 6 - candidateSongs.length);
-        
-        candidateSongs = [...candidateSongs, ...additionalSongs];
-      }
-      
-      // 最多选择6首歌
-      candidateSongs = candidateSongs.slice(0, 6);
-      
-      // 丰富的推荐理由模板
-      const reasonTemplates = {
-        artist: [
-          `基于您对 {artist} 的喜爱`,
-          `为您推荐 {artist} 的更多作品`,
-          `符合您欣赏的艺术家 {artist} 的风格`,
-          `与您喜欢的艺术家 {artist} 音乐风格相似`
-        ],
-        genre: [
-          `匹配您偏爱的 {genre} 风格`,
-          `为您精选的 {genre} 类型音乐`,
-          `根据您的听歌习惯，您可能会喜欢这首 {genre}`,
-          `这首 {genre} 与您的音乐品味相符`
-        ],
-        general: [
-          `基于您的历史播放数据推荐`,
-          `与您近期欣赏的歌曲有相似元素`,
-          `多数与您有相似偏好的用户也喜欢这首歌`,
-          `这首歌的音乐特征符合您的个人品味`
-        ]
-      };
-      
-      // 为每首歌添加推荐原因
-      return candidateSongs.map(song => {
-        // 决定推荐理由
-        let reason;
-        if (favoriteArtists.includes(song.artist)) {
-          // 随机选择一个艺术家相关的理由模板
-          const template = reasonTemplates.artist[Math.floor(Math.random() * reasonTemplates.artist.length)];
-          reason = template.replace('{artist}', song.artist);
-        } else if (song.genre && favoriteGenres.includes(song.genre)) {
-          // 随机选择一个流派相关的理由模板
-          const template = reasonTemplates.genre[Math.floor(Math.random() * reasonTemplates.genre.length)];
-          reason = template.replace('{genre}', song.genre);
-        } else {
-          // 随机选择一个通用理由
-          reason = reasonTemplates.general[Math.floor(Math.random() * reasonTemplates.general.length)];
-        }
-        
-        // 在歌曲中添加随机点赞和点踩数
-        return {
-          ...song,
-          explanation: reason,
-          source: "algorithm",
-          likeCount: Math.floor(Math.random() * 500) + 300,
-          dislikeCount: Math.floor(Math.random() * 50)
-        };
-      });
-    },
-    
-    // 添加用户向量相关的辅助方法
-    topUserPreferences(category, limit = 5) {
-      // 根据类别（艺术家、流派、特征）获取top N的偏好
-      const preferences = this.userVector[category];
-      
-      if (!preferences || Object.keys(preferences).length === 0) {
-        return {};
-      }
-      
-      // 按偏好得分从高到低排序
-      return Object.fromEntries(
-        Object.entries(preferences)
-          .filter(([_, score]) => score > 0.5) // 只显示偏好大于0.5的项
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, limit)
-      );
-    },
-
-    // 根据偏好得分返回合适的标签颜色
-    getPreferenceTagColor(score) {
-      if (score >= 0.8) return 'is-success'; // 很喜欢
-      if (score >= 0.65) return 'is-primary'; // 喜欢
-      if (score >= 0.5) return 'is-info'; // 稍微喜欢
-      if (score <= 0.3) return 'is-danger'; // 不喜欢
-      if (score <= 0.4) return 'is-warning'; // 稍微不喜欢
-      return 'is-light'; // 中性
-    },
-    
-    // 切换自动刷新功能
-    toggleAutoRefresh() {
-      console.log('触发toggleAutoRefresh方法');
-      console.log('自动刷新之前状态:', this.autoRefreshEnabled);
-      
-      this.autoRefreshEnabled = !this.autoRefreshEnabled;
-      
-      console.log('自动刷新之后状态:', this.autoRefreshEnabled);
-      
-      this.addNotification(
-        this.autoRefreshEnabled ? 
-          '已开启推荐自动刷新' : 
-          '已关闭推荐自动刷新', 
-        'is-info'
-      );
-      
-      // 保存用户偏好
-      localStorage.setItem('autoRefreshEnabled', this.autoRefreshEnabled.toString());
-    },
-    
-    // 设置自动刷新计时器
-    setupAutoRefreshTimer() {
-      // 每5分钟检查一次是否需要刷新
-      setInterval(() => {
-        // 如果自动刷新被禁用，则跳过
-        if (!this.autoRefreshEnabled) return;
-        
-        // 如果当前不在推荐页面，则跳过
-        if (this.currentTab !== 'recommend') return;
-        
-        // 检查是否距离上次更新已经过了足够的时间
-        if (this.recommendationsLastUpdated) {
-          const now = new Date();
-          const timeSinceLastUpdate = now - this.recommendationsLastUpdated;
           
-          if (timeSinceLastUpdate >= this.recommendationRefreshInterval) {
-            this.refreshRecommendations(true);
+          // 检查是否提到了艺术家
+          for (const artistName of artists) {
+            if (userMessage.toLowerCase().includes(artistName.toLowerCase())) {
+              artist = artistName;
+              needRecommendation = true;
+              break;
+            }
           }
-        } else if (this.hasRatedEnoughSongs) {
-          // 如果从未更新过且有足够评分，则更新
-          this.refreshRecommendations(true);
-        }
-      }, 60000); // 每分钟检查一次
-    },
-
-    // 更新播放按钮状态
-    updatePlayButtonState() {
-      const playPauseBtn = document.getElementById('playPauseBtn');
-      if (playPauseBtn) {
-        playPauseBtn.innerHTML = this.isPlaying ? 
-          '<span class="icon"><i class="fas fa-pause"></i></span>' : 
-          '<span class="icon"><i class="fas fa-play"></i></span>';
-      }
-    },
-
-    // 添加聊天欢迎消息
-    addChatWelcomeMessage() {
-      const welcomeMessage = this.currentLanguage === 'zh' ? 
-        '你好！我是AI音乐助手，可以帮你找到你喜欢的音乐。试着告诉我你喜欢什么类型的音乐或者你喜欢的歌手吧！' : 
-        'Hello! I\'m the AI Music Assistant. I can help you find music you\'ll love. Try telling me what genres or artists you like!';
-      
-      this.chatMessages.push({
-        isUser: false,
-        content: welcomeMessage,
-        timestamp: new Date()
+          
+          // 检查是否提到了音乐类型
+          for (const genreName of genres) {
+            if (userMessage.toLowerCase().includes(genreName.toLowerCase())) {
+              genre = genreName;
+              needRecommendation = true;
+              break;
+            }
+          }
+          
+          // 检查是否提到了场景
+          for (const sceneName of scenes) {
+            if (userMessage.toLowerCase().includes(sceneName.toLowerCase())) {
+              scene = sceneName;
+              needRecommendation = true;
+              break;
+            }
+          }
+          
+          // 检查是否包含推荐请求
+          if (userMessage.includes('推荐') || userMessage.includes('suggest') || 
+              userMessage.includes('recommend') || userMessage.includes('想听')) {
+            needRecommendation = true;
+          }
+          
+          // 根据分析结果构建回复
+          response.emotion = detectedEmotion;
+          
+          // 生成回复消息
+          if (artist) {
+            response.message = `哇！${artist}超棒的～🌟 我也超喜欢！这里有一些${artist}的歌，希望能让你嗨起来！💃`;
+          } else if (genre) {
+            response.message = `${genre}真是太赞了！👏 我也超爱这种风格！为你精心挑选了一些歌曲，保证让你耳朵怀孕～🎵`;
+          } else if (scene) {
+            response.message = `${scene}的时候听什么歌？让我来帮你～🎧 这些歌曲绝对适合，试试看吧！保证让你的${scene}时光更美妙～✨`;
+          } else if (detectedEmotion !== 'neutral') {
+            const emotionMessages = {
+              'happy': '哇！看到你这么开心我也超开心的呢～😄 这些超级阳光的歌曲绝对能让你的笑容加倍！一起high起来吧～🎉',
+              'sad': '抱抱你～🫂 每个人都会有不开心的时候。这些歌曲轻轻陪着你，像好朋友一样给你一个温暖的拥抱。记住，雨后总会有彩虹哦～🌈',
+              'angry': '哎呀，心情不好吗？深呼吸～我懂你！😤 这些歌曲可以帮你发泄一下，有时候大声唱出来心情就会好很多呢！要不要试试看？💪',
+              'anxious': '别担心，有我陪着你呢～😌 这些舒缓的音乐就像是一杯热茶，慢慢喝下去，焦虑感就会随着旋律慢慢飘走～✨ 试着深呼吸，放松一下吧！',
+              'nostalgic': '啊～回忆杀来了！🕰️ 那些美好时光总是让人忍不住想念呢～这些经典歌曲，就像打开了记忆的宝盒，让我们一起沉浸在美好的回忆里吧～💭',
+              'lonely': '嘿，孤独的时候，音乐是最好的伙伴！🌙 这些歌曲会像温柔的朋友一样陪在你身边，记住，你并不孤单，因为有我和音乐陪着你呢～💕',
+              'hopeful': '哇！爱你这种积极的心态！✨ 这些充满能量的歌曲会给你加油打气，向着梦想前进吧！未来一定会越来越棒的！🚀',
+              'calm': '平静的感觉真好呢～🍃 这些轻柔的音乐就像微风拂过脸颊，让这份宁静更加美好～闭上眼睛，享受这美妙的时刻吧！🌿'
+            };
+            response.message = emotionMessages[detectedEmotion] || '根据我们的小对话，我特意为你挑选了这些歌曲～希望你会喜欢！✨';
+          } else if (needRecommendation) {
+            response.message = '按照你的喜好，我精心为你挑选了这些超棒的歌曲！💝 希望能戳中你的小心心～快告诉我你喜不喜欢吧！';
+          } else {
+            response.message = '嗨！我是你的AI音乐小助手～🎵 有什么我能帮到你的吗？想听什么类型的歌？还是想了解某个歌手？或者只是想找首歌来配合你现在的心情？尽管告诉我吧，我会尽我所能帮你找到完美的音乐！💕';
+            resolve(response);
+            return;
+          }
+          
+          // 如果需要推荐，生成推荐歌曲
+          if (needRecommendation) {
+            // 模拟不同情绪/场景/艺术家的歌曲推荐
+            const recommendationsByEmotion = {
+              'happy': [
+                { id: 'h1', title: '最好的安排', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周董的这首歌超欢快的～🎵 轻快节奏搭配温暖歌词，就像阳光照进心里，开心加倍！☀️' },
+                { id: 'h2', title: 'Happy', artist: 'Pharrell Williams', album_cover: 'https://via.placeholder.com/150', explanation: '这首歌简直是快乐本身啊！😆 听了绝对忍不住跟着舞动，保证让你的心情一路飙升～🚀' },
+                { id: 'h3', title: '开心的马骝', artist: '刘德华', album_cover: 'https://via.placeholder.com/150', explanation: '华仔的招牌金曲～🌟 超级欢快的旋律让人不由自主地想摇摆，每次听都能被治愈呢！💫' }
+              ],
+              'sad': [
+                { id: 's1', title: '晴天', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周杰伦的这首经典～🌧️ 带着一丝忧伤但却很温暖，就像在雨天有人为你撑伞，特别治愈～🌈' },
+                { id: 's2', title: 'Someone Like You', artist: 'Adele', album_cover: 'https://via.placeholder.com/150', explanation: 'Adele的嗓音真的太有魔力了～✨ 每个音符都仿佛能触动心底最柔软的地方，让眼泪和心情都得到释放～💧' },
+                { id: 's3', title: '后来', artist: '刘若英', album_cover: 'https://via.placeholder.com/150', explanation: '奶茶姐姐的这首歌真的太戳心了～💘 温柔的旋律搭配感人歌词，陪你度过低落时光，像老朋友一样安慰你～🫂' }
+              ],
+              'angry': [
+                { id: 'a1', title: 'Numb', artist: 'Linkin Park', album_cover: 'https://via.placeholder.com/150', explanation: '这首歌的力量感超强～💥 强烈的节奏和震撼人心的嘶吼，超适合发泄情绪！简直是情绪出口～🔥' },
+                { id: 'a2', title: '龙卷风', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周董的这首歌节奏超带感～⚡ 说唱部分超过瘾，听着听着烦躁感就像被龙卷风卷走啦～🌪️' },
+                { id: 'a3', title: 'We Will Rock You', artist: 'Queen', album_cover: 'https://via.placeholder.com/150', explanation: '传奇乐队Queen的经典～👑 那个标志性的踩踏节奏简直太上头了！超适合跺脚大喊发泄情绪～💪' }
+              ],
+              'anxious': [
+                { id: 'an1', title: 'River Flows In You', artist: 'Yiruma', album_cover: 'https://via.placeholder.com/150', explanation: '治愈系钢琴曲～🎹 轻柔的琴声就像小溪流水，轻轻抚平你焦躁的心情，让压力随着音符慢慢融化～✨' },
+                { id: 'an2', title: '稻香', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周董的这首歌暖暖的～🌾 充满正能量的旋律和歌词，就像心灵鸡汤，喝一口焦虑全消～🍵' },
+                { id: 'an3', title: 'Weightless', artist: 'Marconi Union', album_cover: 'https://via.placeholder.com/150', explanation: '这首歌可是科学证明能减轻焦虑哦～🧠 舒缓的电子音乐带你进入冥想状态，压力感一秒飞走～🦋' }
+              ],
+              'nostalgic': [
+                { id: 'n1', title: '童年', artist: '光良', album_cover: 'https://via.placeholder.com/150', explanation: '听到这首歌就像翻开童年相册～📸 温暖的旋律唤起那些单纯美好的回忆，满满的都是小时候的味道～🧸' },
+                { id: 'n2', title: 'Yesterday', artist: 'The Beatles', album_cover: 'https://via.placeholder.com/150', explanation: '披头士的不朽经典～🎸 简单而深刻的旋律，像老照片一样珍贵，让人沉浸在美好的往昔时光～⏳' },
+                { id: 'n3', title: '但愿人长久', artist: '王菲', album_cover: 'https://via.placeholder.com/150', explanation: '天后王菲的中国风演绎～🏮 古诗词与现代音乐的完美融合，一秒穿越时空，勾起对传统文化的怀念～🌙' }
+              ],
+              'lonely': [
+                { id: 'l1', title: '一个人', artist: '林俊杰', album_cover: 'https://via.placeholder.com/150', explanation: 'JJ把独处的感觉唱得太到位了～🌃 虽然写的是孤独，却带着一丝温暖，像夜里的一盏小灯，陪你熬过寂寞时刻～💡' },
+                { id: 'l2', title: 'All by Myself', artist: 'Celine Dion', album_cover: 'https://via.placeholder.com/150', explanation: '席琳迪翁的嗓音太有感染力了～✨ 这首歌仿佛能看见自己的孤独，但同时又感受到无数人与你同在～🌟' },
+                { id: 'l3', title: '倒带', artist: '蔡依林', album_cover: 'https://via.placeholder.com/150', explanation: 'Jolin的这首老歌超有感觉～📼 节奏中带着一丝忧伤，听着听着就像有个老朋友懂你的心事～👭' }
+              ],
+              'neutral': [
+                { id: 'ne1', title: 'Shape of You', artist: 'Ed Sheeran', album_cover: 'https://via.placeholder.com/150', explanation: '红发艾德的超级热单～🔥 轻松愉快的旋律加上节奏感超强的歌词，绝对能让你的心情瞬间愉悦起来～💃' },
+                { id: 'ne2', title: '告白气球', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周董的甜蜜情歌～🎈 轻快又浪漫，听了就像空气中飘着恋爱的气息，超适合哼着玩手机发呆～💕' },
+                { id: 'ne3', title: 'Uptown Funk', artist: 'Mark Ronson ft. Bruno Mars', album_cover: 'https://via.placeholder.com/150', explanation: '这首歌的节奏感简直无敌了～⚡ 布鲁诺·马尔斯的演绎超级带感，保证你会忍不住跟着扭起来～🕺' }
+              ]
+            };
+            
+            // 按艺术家推荐
+            const artistRecommendations = {
+              '周杰伦': [
+                { id: 'jay1', title: '稻香', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周董的乡村风金曲～🌾 温暖治愈的旋律和超有画面感的歌词，每次听都有种回到乡下的感觉～让所有烦恼都烟消云散～🧘‍♂️' },
+                { id: 'jay2', title: '晴天', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周杰伦的代表作之一～☔ 略带忧伤但又超治愈，每个音符都写满了青春回忆，听一遍就让人沉浸在自己的小情绪里～💭' },
+                { id: 'jay3', title: '七里香', artist: '周杰伦', album_cover: 'https://via.placeholder.com/150', explanation: '周董的浪漫情歌～💑 超好听的旋律让人一秒陷入恋爱氛围，就像夏天的晚风裹着花香，甜甜的～🌸' }
+              ],
+              'Taylor Swift': [
+                { id: 'ts1', title: 'Love Story', artist: 'Taylor Swift', album_cover: 'https://via.placeholder.com/150', explanation: '霉霉的青涩时期作品～👸 这首超浪漫的现代童话故事，听了就像回到了少女时代，心里住着王子的那段时光～👑' },
+                { id: 'ts2', title: 'Blank Space', artist: 'Taylor Swift', album_cover: 'https://via.placeholder.com/150', explanation: '霉霉华丽转身后的神曲～✨ 超洗脑的旋律配上犀利的歌词，听多少遍都不腻，还能跟着"欧～"起来～🎵' },
+                { id: 'ts3', title: 'All Too Well', artist: 'Taylor Swift', album_cover: 'https://via.placeholder.com/150', explanation: '粉丝公认的霉霉神作～❤️‍🩹 细腻的情感表达超有共鸣，每一句歌词都像是写进日记里的真实故事，听得人心都碎了～💔' }
+              ]
+            };
+            
+            // 按场景推荐
+            const sceneRecommendations = {
+              '工作': [
+                { id: 'work1', title: 'Eine kleine Nachtmusik', artist: 'Mozart', album_cover: 'https://via.placeholder.com/150', explanation: '古典音乐有助于提高专注力和工作效率' },
+                { id: 'work2', title: 'Weightless', artist: 'Marconi Union', album_cover: 'https://via.placeholder.com/150', explanation: '环境音乐，可以提供稳定的背景音，不会分散注意力' },
+                { id: 'work3', title: 'Experience', artist: 'Ludovico Einaudi', album_cover: 'https://via.placeholder.com/150', explanation: '现代钢琴曲，节奏平稳，有助于保持专注' }
+              ],
+              '学习': [
+                { id: 'study1', title: 'Spring - The Four Seasons', artist: 'Vivaldi', album_cover: 'https://via.placeholder.com/150', explanation: '古典音乐有助于提高记忆力和学习效率' },
+                { id: 'study2', title: 'River Flows in You', artist: 'Yiruma', album_cover: 'https://via.placeholder.com/150', explanation: '舒缓的钢琴曲，可以创造安静的学习氛围' },
+                { id: 'study3', title: 'Focus', artist: 'Spotify Playlist', album_cover: 'https://via.placeholder.com/150', explanation: '专为学习设计的轻音乐集合' }
+              ],
+              '运动': [
+                { id: 'workout1', title: 'Eye of the Tiger', artist: 'Survivor', album_cover: 'https://via.placeholder.com/150', explanation: '经典运动励志曲目，激发能量' },
+                { id: 'workout2', title: 'Can\'t Hold Us', artist: 'Macklemore & Ryan Lewis', album_cover: 'https://via.placeholder.com/150', explanation: '节奏强劲，适合高强度锻炼' },
+                { id: 'workout3', title: 'Stronger', artist: 'Kanye West', album_cover: 'https://via.placeholder.com/150', explanation: '励志歌词和强劲节奏，适合健身时聆听' }
+              ]
+            };
+            
+            // 根据情况选择推荐
+            if (artist && artistRecommendations[artist]) {
+              response.recommendations = artistRecommendations[artist];
+            } else if (scene && sceneRecommendations[scene]) {
+              response.recommendations = sceneRecommendations[scene];
+            } else {
+              response.recommendations = recommendationsByEmotion[detectedEmotion] || recommendationsByEmotion['neutral'];
+            }
+          }
+          
+          resolve(response);
+        }, 1000); // 模拟网络延迟
       });
     },
-
+    
     // 添加辅助调试方法
     debug(message, data) {
       if (this.debugMode) {
@@ -2926,6 +1613,337 @@ window.app = new Vue({
         this.handleAudioError(error);
       }
     },
+    
+    // 初始化情感检测器
+    initEmotionDetector() {
+      console.log('初始化情感检测器');
+      try {
+        // 实例化情感检测器
+        this.emotionDetector = new EmotionDetector();
+        console.log('情感检测器初始化成功');
+      } catch (error) {
+        console.error('情感检测器初始化失败:', error);
+        // 创建一个空的替代对象，避免后续使用时出错
+        this.emotionDetector = {
+          analyzeLocally: () => ({ emotion: "平静", valence: 0.5, energy: 0.5 }),
+          detectFromText: async (text) => ({ emotion: "平静", valence: 0.5, energy: 0.5 }),
+          generateRecommendationReason: () => ({ zh: "根据您的心情，为您推荐音乐", en: "Recommending music based on your mood" })
+        };
+      }
+    },
+    
+    // 导航到情感推荐页面
+    navigateToEmotionRecommend() {
+      console.log('导航到情感推荐页面');
+      this.currentTab = 'recommend';
+      // 可以在这里添加额外逻辑，如触发情感分析等
+    },
+    
+    // 播放歌曲预览
+    playSongPreview(song, title, artist) {
+      console.log('播放歌曲预览', title, artist);
+      
+      try {
+        // 获取音频播放器元素
+        const audioPlayer = document.getElementById('audioPlayer');
+        const playerContainer = document.getElementById('audioPlayerContainer');
+        
+        if (!audioPlayer || !playerContainer) {
+          console.error('找不到音频播放器元素');
+          return;
+        }
+        
+        // 显示播放器容器
+        playerContainer.classList.remove('hidden');
+        
+        // 设置当前播放歌曲信息
+        this.currentPlayingSong = {
+          id: song.id || 'unknown',
+          title: title || '未知歌曲',
+          artist: artist || '未知艺术家'
+        };
+        
+        // 更新播放器UI
+        const songTitleElement = document.getElementById('currentSongTitle');
+        const artistNameElement = document.getElementById('currentArtistName');
+        
+        if (songTitleElement) songTitleElement.textContent = title || '未知歌曲';
+        if (artistNameElement) artistNameElement.textContent = artist || '未知艺术家';
+        
+        // 根据不同情况设置音频源
+        let audioSource = '';
+        
+        if (typeof song === 'string') {
+          // 如果song是字符串，直接作为URL使用
+          audioSource = song;
+        } else if (song && song.preview_url) {
+          // 如果song是对象且有preview_url属性
+          audioSource = song.preview_url;
+        } else if (song && song.external_url) {
+          // 如果有外部链接但没有预览URL，显示提示并打开外部链接
+          this.showNotification(`没有可用的预览，正在打开Spotify`, 'is-info');
+          window.open(song.external_url, '_blank');
+          return;
+        } else {
+          // 没有可用预览，显示错误消息
+          this.showNotification(`无法播放 "${title} - ${artist}" 的预览`, 'is-warning');
+          return;
+        }
+        
+        // 设置音频源并播放
+        audioPlayer.src = audioSource;
+        audioPlayer.load();
+        
+        // 尝试播放
+        const playPromise = audioPlayer.play();
+        
+        // 处理播放承诺
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            console.log('开始播放音频');
+          }).catch(error => {
+            console.error('播放失败:', error);
+            this.showNotification(`播放失败: ${error.message}`, 'is-danger');
+          });
+        }
+      } catch (error) {
+        console.error('播放预览时出错:', error);
+        this.showNotification(`播放错误: ${error.message}`, 'is-danger');
+      }
+    },
+    
+    // 初始化按钮事件
+    initButtonEvents() {
+      console.log('初始化按钮事件');
+      try {
+        // 初始化导航按钮
+        const navButtons = document.querySelectorAll('[data-tab]');
+        navButtons.forEach(button => {
+          button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabName = button.getAttribute('data-tab');
+            console.log(`点击了标签页按钮: ${tabName}`);
+            if (tabName) {
+              this.currentTab = tabName;
+            }
+          });
+        });
+        
+        // 初始化汉堡菜单按钮 (移动端)
+        const navbarBurgers = document.querySelectorAll('.navbar-burger');
+        navbarBurgers.forEach(burger => {
+          burger.addEventListener('click', () => {
+            const target = document.getElementById(burger.dataset.target);
+            burger.classList.toggle('is-active');
+            target.classList.toggle('is-active');
+          });
+        });
+        
+        // 初始化自动刷新开关按钮
+        const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+        if (autoRefreshToggle) {
+          autoRefreshToggle.addEventListener('change', () => {
+            this.autoRefreshEnabled = autoRefreshToggle.checked;
+            localStorage.setItem('autoRefreshEnabled', this.autoRefreshEnabled);
+            console.log('自动刷新设置已更改:', this.autoRefreshEnabled);
+          });
+        }
+        
+        // 初始化聊天建议按钮
+        setTimeout(() => {
+          const suggestionButtons = document.querySelectorAll('.chat-suggestions button');
+          suggestionButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+              e.preventDefault();
+              const text = button.textContent.trim();
+              console.log('点击了聊天建议按钮:', text);
+              
+              // 根据按钮内容生成对应的消息文本
+              let messageText = '';
+              if (text.includes('推荐流行音乐')) {
+                messageText = '推荐一些流行音乐给我';
+              } else if (text.includes('我喜欢周杰伦')) {
+                messageText = '我喜欢周杰伦的歌';
+              } else if (text.includes('工作音乐')) {
+                messageText = '推荐适合工作时听的音乐';
+              } else if (text.includes('基于评分推荐')) {
+                messageText = '根据我的评分推荐音乐';
+              } else {
+                messageText = text;
+              }
+              
+              // 使用消息文本
+              this.useSuggestion(messageText);
+            });
+          });
+          console.log('聊天建议按钮初始化完成');
+        }, 1000);
+        
+        // 初始化底部快捷按钮
+        setTimeout(() => {
+          const quickButtons = document.querySelectorAll('.quick-buttons .quick-button');
+          quickButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+              console.log('点击了底部快捷按钮:', button.textContent.trim());
+            });
+          });
+          console.log('底部快捷按钮事件已绑定');
+        }, 1000);
+      } catch (error) {
+        console.error('初始化按钮事件出错:', error);
+      }
+    },
+    
+    // 检查并持久化用户向量
+    checkAndPersistUserVector() {
+      // 如果用户已登录且有足够的评分数据
+      if (this.isLoggedIn && this.hasRatedEnoughSongs()) {
+        console.log('持久化用户向量');
+        // 这里可以调用后端API保存用户向量
+        // 简化实现，仅打印日志
+      }
+    },
+    
+    // 设置自动刷新计时器
+    setupAutoRefreshTimer() {
+      console.log('设置自动刷新计时器');
+      // 清除现有的计时器
+      if (this.autoRefreshTimer) {
+        clearInterval(this.autoRefreshTimer);
+      }
+      
+      // 如果启用了自动刷新
+      if (this.autoRefreshEnabled) {
+        // 设置新计时器，每30分钟刷新一次推荐
+        this.autoRefreshTimer = setInterval(() => {
+          console.log('自动刷新推荐');
+          if (this.currentTab === 'recommend') {
+            this.refreshRecommendations(true);
+          }
+        }, 30 * 60 * 1000); // 30分钟
+        
+        console.log('自动刷新计时器已设置');
+      } else {
+        console.log('自动刷新已禁用');
+      }
+    },
+    
+    // 刷新推荐列表
+    refreshRecommendations(showNotification = true) {
+      console.log('刷新推荐列表');
+      
+      // 如果显示通知
+      if (showNotification) {
+        this.addNotification('正在获取新的推荐...', 'is-info');
+      }
+      
+      // 调用获取推荐的方法
+      this.getRecommendations().then(() => {
+        if (showNotification) {
+          this.addNotification('推荐已更新', 'is-success');
+        }
+      }).catch(error => {
+        console.error('刷新推荐失败:', error);
+        if (showNotification) {
+          this.addNotification('获取推荐失败，请稍后再试', 'is-danger');
+        }
+      });
+    },
+    
+    // 添加聊天欢迎消息
+    addChatWelcomeMessage() {
+      console.log('添加聊天欢迎消息');
+      
+      // 初始化聊天消息数组（如果不存在）
+      if (!this.chatMessages) {
+        this.chatMessages = [];
+      }
+      
+      // 如果聊天消息为空，添加AI欢迎消息
+      if (this.chatMessages.length === 0) {
+        // 添加AI欢迎消息
+        this.chatMessages.push({
+          id: Date.now(),
+          content: this.t('chatWelcome') || "你好！我是你的AI音乐助手。我可以推荐音乐、根据你的心情提供歌曲，或者只是和你聊聊天。请告诉我你想听什么类型的音乐？",
+          isUser: false,
+          timestamp: new Date().toISOString(),
+          // 添加聊天建议
+          suggestions: [
+            '我喜欢流行音乐，有什么推荐？',
+            '我今天心情不太好，需要一些舒缓的音乐',
+            '我喜欢周杰伦的歌，推荐一些类似的',
+            '推荐一些适合学习的背景音乐'
+          ]
+        });
+        
+        console.log('已添加聊天欢迎消息:', this.chatMessages);
+      }
+    },
+    
+    // 使用聊天建议
+    useSuggestion(text) {
+      console.log('使用聊天建议:', text);
+      
+      // 确保当前在聊天页面
+      this.currentTab = 'chat';
+      
+      // 等待视图更新，确保聊天界面已加载
+      this.$nextTick(() => {
+        // 如果聊天输入框不存在，创建一个
+        if (!this.currentMessage) {
+          this.currentMessage = '';
+        }
+        
+        // 设置聊天输入内容
+        this.currentMessage = text;
+        
+        // 添加一个短暂延迟，确保UI已更新
+        setTimeout(() => {
+          // 自动发送消息
+          this.sendMessage();
+        }, 100);
+      });
+    },
+    
+    // 安全显示通知的辅助方法
+    showNotification(message, type) {
+      if (this.addNotification) {
+        this.addNotification(message, type);
+      } else {
+        console.warn('无法显示通知:', message);
+        alert(message); // 作为后备方案
+      }
+    },
+    
+    // 添加通知消息
+    addNotification(message, type = 'is-info') {
+      // 创建唯一ID
+      const id = Date.now();
+      
+      // 添加到通知数组
+      this.notifications.push({
+        id,
+        message,
+        type,
+        isVisible: true
+      });
+      
+      // 自动移除通知
+      setTimeout(() => {
+        const index = this.notifications.findIndex(n => n.id === id);
+        if (index !== -1) {
+          // 设置为不可见
+          this.notifications[index].isVisible = false;
+          
+          // 完全移除通知
+          setTimeout(() => {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+          }, 500);
+        }
+      }, 5000);
+      
+      console.log('添加通知:', message, type);
+    },
   },
   
   // 侦听器
@@ -2936,14 +1954,14 @@ window.app = new Vue({
       // 确保DOM已更新
       this.$nextTick(() => {
         // 处理标签切换后的特殊逻辑
-      if (newTab === 'game') {
-        // 初始化游戏
+        if (newTab === 'game') {
+          // 初始化游戏
           this.initMusicGame();
         } else if (newTab === 'recommend' && this.recommendations.length === 0) {
           // 如果进入推荐页面且没有推荐内容，获取推荐
           this.refreshRecommendations(false);
-        } else if (newTab === 'chat' && this.chatMessages.length === 0) {
-          // 如果进入聊天页面且没有消息，添加欢迎消息
+        } else if (newTab === 'chat') {
+          // 如果进入聊天页面，添加欢迎消息（无论是否有消息）
           this.addChatWelcomeMessage();
         }
       });
@@ -2955,6 +1973,12 @@ window.app = new Vue({
     // 包裹在try-catch中，防止初始化错误
     try {
       console.log('Vue实例挂载开始');
+      
+      // 立即添加欢迎词到聊天界面
+      setTimeout(() => {
+        this.addChatWelcomeMessage();
+        console.log('挂载后添加聊天欢迎词');
+      }, 200);
       
       // 从本地存储加载自动刷新设置
       const savedAutoRefresh = localStorage.getItem('autoRefreshEnabled');
@@ -2978,10 +2002,26 @@ window.app = new Vue({
       // 3. 初始化情感检测器
       this.initEmotionDetector();
       
-      // 4. 初始化按钮事件
+      // 4. 初始化按钮事件 - 确保总是调用
       this.initButtonEvents();
       
-      // 5. 设置自动保存用户向量的计时器
+      // 5. 立即初始化底部快捷按钮
+      setTimeout(() => {
+        const bottomButtons = document.querySelectorAll('footer a, [data-tab]');
+        bottomButtons.forEach(button => {
+          button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabName = button.getAttribute('data-tab');
+            if (tabName) {
+              console.log(`底部按钮点击: ${tabName}`);
+              this.currentTab = tabName;
+            }
+          });
+        });
+        console.log('底部快捷按钮初始化完成');
+      }, 500);
+      
+      // 设置自动保存用户向量的计时器
       setInterval(() => {
         this.checkAndPersistUserVector();
       }, 30000); // 每30秒检查一次
@@ -3014,6 +2054,12 @@ window.app = new Vue({
 
   // 全局错误捕获，防止网络请求失败导致应用崩溃
   created() {
+    // 初始化聊天消息和欢迎词
+    this.chatMessages = [];
+    this.addChatWelcomeMessage();
+    
+    console.log('创建Vue实例时初始化聊天欢迎词');
+    
     // 确保错误处理器已设置
     setupErrorHandlers();
     

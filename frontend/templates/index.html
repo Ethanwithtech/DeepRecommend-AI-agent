@@ -608,12 +608,12 @@
                             <div class="has-text-centered mt-5" v-if="sampleSongs.length > 0">
                                 <button class="button is-primary is-large" 
                                         @click="getRecommendations"
-                                        :disabled="!hasRatedEnoughSongs || isLoading"
+                                        :disabled="!hasRatedEnoughSongs() || isLoading"
                                         :class="{'is-loading': isLoading}">
                                     <span class="icon"><i class="fas fa-headphones"></i></span>
                                     <span>{{ t('getRecommendations') }}</span>
                                 </button>
-                                <p class="help" v-if="!hasRatedEnoughSongs">
+                                <p class="help" v-if="!hasRatedEnoughSongs()">
                                     {{ t('needMoreRatings') }}
                                 </p>
                             </div>
@@ -979,8 +979,8 @@
                                     <button class="button" @click="useSuggestion('推荐适合工作时听的音乐')">
                                         <i class="fas fa-briefcase"></i> 工作音乐
                                     </button>
-                                    <button class="button" @click="useSuggestion('根据我的评分推荐音乐')">
-                                        <i class="fas fa-thumbs-up"></i> 基于评分推荐
+                                    <button class="button" @click="useSuggestion('我今天心情不太好，需要一些舒缓的音乐')">
+                                        <i class="fas fa-cloud-rain"></i> 心情低落
                                     </button>
                                 </div>
                             </div>
@@ -1045,10 +1045,10 @@
                     <div class="column is-4">
                         <h3 class="title is-6" style="color: white;">功能</h3>
                         <ul>
-                            <li><a href="#" data-tab="rate">{{ t('questionnaire') }}</a></li>
-                            <li><a href="#" data-tab="recommend">个性化推荐</a></li>
-                            <li><a href="#" data-tab="chat">AI音乐助手</a></li>
-                            <li><a href="#" data-tab="game">音乐游戏</a></li>
+                            <li><a href="#" @click.prevent="currentTab = 'rate'">{{ t('questionnaire') }}</a></li>
+                            <li><a href="#" @click.prevent="currentTab = 'recommend'">个性化推荐</a></li>
+                            <li><a href="#" @click.prevent="currentTab = 'chat'">AI音乐助手</a></li>
+                            <li><a href="#" @click.prevent="currentTab = 'game'">音乐游戏</a></li>
                         </ul>
                     </div>
                     
@@ -1095,6 +1095,22 @@
             </button>
             <audio id="audioPlayer"></audio>
         </div>
+
+        <!-- 快捷推荐按钮 -->
+        <div class="quick-buttons">
+            <button class="quick-button" @click="currentTab = 'recommend'; refreshRecommendations(false)">
+                <i class="fas fa-headphones-alt"></i> 推荐流行音乐
+            </button>
+            <button class="quick-button" @click="currentTab = 'chat'; useSuggestion('我喜欢周杰伦的歌')">
+                <i class="fas fa-heart"></i> 我喜欢周杰伦
+            </button>
+            <button class="quick-button" @click="currentTab = 'chat'; useSuggestion('推荐适合工作时听的音乐')">
+                <i class="fas fa-briefcase"></i> 工作音乐
+            </button>
+            <button class="quick-button" @click="getRecommendations()">
+                <i class="fas fa-thumbs-up"></i> 基于评分推荐
+            </button>
+        </div>
     </div>
 
     <!-- Vue.js -->
@@ -1120,6 +1136,14 @@
       // 调试代码 - 帮助排除用户脚本干扰
       document.addEventListener('DOMContentLoaded', function() {
         console.log('页面加载完成，准备初始化Vue实例');
+        
+        // 确保Vue实例初始化后立即添加欢迎消息
+        setTimeout(function() {
+          if (window.app && window.app.addChatWelcomeMessage) {
+            window.app.addChatWelcomeMessage();
+            console.log('已添加聊天欢迎消息');
+          }
+        }, 1000);
         
         // 防止用户脚本干扰 - 保护关键方法
         const originalPromiseThen = Promise.prototype.then;
