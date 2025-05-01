@@ -1,0 +1,1325 @@
+/* 
+ * 音乐推荐系统主样式表
+ * 参考网易云音乐设计风格，使用黑色和紫色为主题
+ */
+
+:root {
+    --primary-color: #8A2BE2;         /* 紫色主色调 */
+    --primary-light: #9B4BFF;         /* 亮紫色悬停效果 */
+    --primary-dark: #6A1B9A;          /* 深紫色按下效果 */
+    --secondary-color: #BB86FC;       /* 次要紫色 */
+    --background-color: #191919;      /* 深黑背景 */
+    --card-background: #252525;       /* 卡片背景 */
+    --hover-background: #333333;      /* 悬停背景 */
+    --text-color: #FFFFFF;            /* 主文字颜色，提高亮度 */
+    --light-text: #eee;               /* 次要文字，提高亮度 */
+    --very-light-text: #FFFFFF;       /* 高亮文字，最高亮度 */
+    --border-color: #3F3F3F;          /* 边框颜色 */
+    --border-radius: 8px;
+    --box-shadow: 0 4px 12px rgba(138, 43, 226, 0.4);
+    --transition: all 0.3s ease;
+    --primary-gradient: linear-gradient(45deg, #8A2BE2, #9B4BFF);
+    --secondary-gradient: linear-gradient(45deg, #6A1B9A, #BB86FC);
+    --success-color: #4caf50;         /* 成功颜色 */
+    --warning-color: #ff9800;         /* 警告颜色 */
+    --danger-color: #f44336;          /* 危险颜色 */
+    --info-color: #2196f3;            /* 信息颜色 */
+}
+
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-image: url('/static/img/music-pattern.svg');
+    background-blend-mode: overlay;
+    background-size: 300px;
+    background-attachment: fixed;
+}
+
+a {
+    color: var(--primary-light);
+    transition: var(--transition);
+}
+
+a:hover {
+    color: var(--primary-color);
+}
+
+/* 标题和文本增强 */
+.title, .subtitle {
+    color: var(--text-color);
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 网易云风格的按钮 */
+.button.is-primary {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(138, 43, 226, 0.2);
+}
+
+.button.is-primary:hover {
+    background-color: var(--primary-light);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(138, 43, 226, 0.3);
+}
+
+.is-active {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+}
+
+/* 导航栏样式 */
+.navbar {
+    background-color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-item, .navbar-link {
+    color: #333;
+    font-weight: 500;
+}
+
+.navbar-item:hover, .navbar-link:hover {
+    color: var(--primary-color);
+    background-color: transparent;
+}
+
+.navbar-brand .navbar-item {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+/* 卡片样式 */
+.card {
+    background-color: var(--card-background);
+    color: var(--text-color);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 15px rgba(138, 43, 226, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+    height: 100%;
+    border: 1px solid rgba(138, 43, 226, 0.1);
+}
+
+.card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 20px rgba(138, 43, 226, 0.4);
+}
+
+.card-content {
+    padding: 1.5rem;
+    color: var(--light-text);
+}
+
+/* 网易云音乐风格的滚动条 */
+.songs-container {
+    max-height: 650px;
+    overflow-y: auto;
+    padding-right: 5px;
+    padding-left: 2px;
+    margin-top: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) rgba(0, 0, 0, 0.2);
+}
+
+.songs-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.songs-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+.songs-container::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 10px;
+}
+
+/* 音乐评分星星 */
+.rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+}
+
+.rating-item {
+    cursor: pointer;
+    font-size: 2.2em;
+    color: #555;
+    transition: color 0.2s, transform 0.1s;
+    margin: 0 2px;
+}
+
+.rating-item:hover {
+    transform: scale(1.2);
+}
+
+.rating-item.selected, .rating:hover .rating-item:hover, 
+.rating:hover .rating-item:hover ~ .rating-item {
+    color: var(--primary-light);
+    text-shadow: 0 0 5px rgba(138, 43, 226, 0.5);
+}
+
+.rating-item.selected ~ .rating-item {
+    color: var(--primary-light);
+}
+
+/* 推荐理由样式 */
+.explanation {
+    font-size: 0.95rem;
+    color: var(--very-light-text);
+    margin-top: 8px;
+    background-color: rgba(138, 43, 226, 0.1);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-light);
+}
+
+/* 英雄区域样式 */
+.hero.is-primary {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+    position: relative;
+    overflow: hidden;
+}
+
+.hero.is-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('/static/img/music-pattern.svg') center/cover no-repeat;
+    opacity: 0.15;
+    mix-blend-mode: overlay;
+}
+
+.hero-body {
+    position: relative;
+    z-index: 2;
+}
+
+/* 标签样式 */
+.tabs li.is-active a {
+    border-bottom-color: var(--secondary-color);
+    color: var(--secondary-color);
+    font-weight: bold;
+}
+
+.tabs a {
+    transition: all 0.3s ease;
+    color: var(--light-text);
+    opacity: 0.8;
+}
+
+.tabs a:hover {
+    background-color: rgba(138, 43, 226, 0.1);
+    color: var(--text-color);
+    opacity: 1;
+}
+
+/* 页脚样式 */
+.footer {
+    padding: 2.5rem;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: var(--light-text);
+    border-top: 1px solid var(--primary-dark);
+}
+
+/* 聊天区域样式 */
+.chat-container {
+    background-color: #252525;
+    border-radius: var(--border-radius);
+    box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
+    border: 1px solid rgba(138, 43, 226, 0.2);
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.chat-messages {
+    background-color: #1e1e1e;
+    padding: 1rem;
+    height: 400px;
+    overflow-y: auto;
+}
+
+.user-message .message-bubble {
+    background-color: var(--primary-dark);
+}
+
+.bot-message .message-bubble {
+    background-color: #333;
+}
+
+.message-bubble {
+    padding: 12px 15px;
+    border-radius: 18px;
+    margin-bottom: 10px;
+    max-width: 80%;
+    position: relative;
+    color: var(--text-color);
+}
+
+.chat-input-container {
+    padding: 1rem;
+    background-color: #2a2a2a;
+    border-top: 1px solid #444;
+}
+
+.chat-input-container .input {
+    background-color: #333;
+    color: var(--text-color);
+    border: 1px solid #444;
+    transition: all 0.3s ease;
+}
+
+.chat-input-container .input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(138, 43, 226, 0.3);
+}
+
+/* 聊天建议按钮区域 */
+.chat-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background-color: #2a2a2a;
+    border-top: 1px solid #444;
+}
+
+.chat-suggestions .button {
+    background-color: #333;
+    color: var(--light-text);
+    border: 1px solid #444;
+    transition: all 0.3s ease;
+    border-radius: 50px;
+    padding: 0 15px;
+}
+
+.chat-suggestions .button:hover {
+    background-color: var(--primary-dark);
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* 通知容器 */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    max-width: 300px;
+}
+
+.notification-container .notification {
+    background-color: var(--card-background);
+    color: var(--text-color);
+    border-left: 4px solid var(--primary-color);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    margin-bottom: 10px;
+    animation: slideIn 0.3s ease forwards;
+}
+
+/* 推荐项目样式 */
+.recommendation-item {
+    padding: 15px;
+    border-radius: 10px;
+    background-color: rgba(42, 42, 42, 0.6); /* 半透明背景 */
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    border-left: 3px solid var(--primary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.recommendation-item:hover {
+    transform: translateY(-3px);
+    background-color: rgba(50, 50, 50, 0.8);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    border-left-color: var(--primary-light);
+}
+
+/* 登录表单样式 */
+.login-container {
+    padding: 30px;
+    background-color: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    border-top: 4px solid var(--primary-color);
+}
+
+.login-container .input {
+    background-color: #333;
+    color: var(--text-color);
+    border: 1px solid #444;
+    transition: all 0.3s ease;
+}
+
+.login-container .input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(138, 43, 226, 0.3);
+}
+
+.login-container .label {
+    color: var(--text-color);
+}
+
+/* 游戏容器样式 */
+.game-container {
+    background-color: #191919;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(138, 43, 226, 0.3);
+    margin-bottom: 30px;
+}
+
+.game-header {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+    padding: 15px 20px;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.game-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 768px) {
+    .card {
+        margin-bottom: 20px;
+    }
+    
+    .chat-suggestions {
+        flex-direction: column;
+    }
+    
+    .chat-suggestions .button {
+        width: 100%;
+        margin-bottom: 8px;
+    }
+}
+
+/* 动画定义 */
+@keyframes slideIn {
+    from {
+        transform: translateX(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* 游戏相关动画 */
+@keyframes float-down {
+    0% {
+        transform: translateY(-20px);
+    }
+    100% {
+        transform: translateY(calc(100vh + 40px));
+    }
+}
+
+@keyframes collected {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+/* 情感输入容器 */
+.emotion-input-container {
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    animation: slideIn 0.3s ease;
+}
+
+.emotion-input-container .input {
+    background-color: white;
+    border: 1px solid #dbdbdb;
+    padding: 12px;
+    border-radius: 4px;
+    transition: all 0.3s;
+}
+
+.emotion-input-container .input:focus {
+    border-color: #8A2BE2;
+    box-shadow: 0 0 0 2px rgba(138, 43, 226, 0.2);
+}
+
+.emotion-input-container .label {
+    color: #4a4a4a;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.emotion-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    color: white;
+    background-color: #8A2BE2;
+}
+
+.emotion-badge i {
+    margin-right: 5px;
+}
+
+.emotion-badge.happy { background-color: #FF9800; }
+.emotion-badge.sad { background-color: #3F51B5; }
+.emotion-badge.angry { background-color: #F44336; }
+.emotion-badge.calm { background-color: #4CAF50; }
+.emotion-badge.excited { background-color: #E91E63; }
+.emotion-badge.relaxed { background-color: #009688; }
+.emotion-badge.anxious { background-color: #9C27B0; }
+
+.emotion-result {
+    background-color: rgba(138, 43, 226, 0.05);
+    border-left: 4px solid #8A2BE2;
+    padding: 10px 15px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    border-radius: 0 4px 4px 0;
+}
+
+.emotion-button {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+}
+
+.emotion-button i {
+    margin-right: 8px;
+    font-size: 18px;
+}
+
+/* 推荐理由 */
+.recommendation-reason-container {
+    margin-top: 10px;
+}
+
+.recommendation-reason {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    background-color: rgba(138, 43, 226, 0.15);
+    border-radius: 6px;
+    color: var(--very-light-text);
+    border-left: 3px solid var(--primary-light);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: inline-block;
+    max-width: 100%;
+    line-height: 1.4;
+}
+
+/* 聊天消息样式改进 */
+.message-container {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+    max-width: 85%;
+    animation: fadeIn 0.3s ease;
+}
+
+.user-message {
+    align-self: flex-end;
+    margin-left: auto;
+}
+
+.bot-message {
+    align-self: flex-start;
+    margin-right: auto;
+}
+
+.message-time {
+    font-size: 0.7rem;
+    color: #999;
+    margin-top: 4px;
+    align-self: flex-end;
+}
+
+.bot-message .message-time {
+    align-self: flex-start;
+}
+
+/* 聊天界面中的歌曲推荐卡片样式 */
+.song-recommendations {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.song-card {
+    display: flex;
+    background-color: rgba(138, 43, 226, 0.05);
+    border-radius: 8px;
+    padding: 10px;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(138, 43, 226, 0.1);
+}
+
+.song-card:hover {
+    background-color: rgba(138, 43, 226, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.song-card-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.song-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.song-card-content {
+    margin-left: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-grow: 1;
+}
+
+.song-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #333;
+    margin-bottom: 3px;
+}
+
+.song-artist {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.song-listen-btn {
+    align-self: flex-start;
+    font-size: 0.75rem;
+    height: 28px;
+    padding: 0 10px;
+}
+
+/* 游戏界面样式美化 */
+.game-container {
+    background-color: #2a0044;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(138, 43, 226, 0.3), 
+                inset 0 0 30px rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    position: relative;
+}
+
+.game-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #9B4BFF, #FF5252, #2196F3, #4CAF50);
+    z-index: 1;
+}
+
+.game-header {
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.game-header h3 {
+    color: white;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.game-header h3 i {
+    margin-right: 8px;
+    color: #9B4BFF;
+}
+
+.game-controls {
+    display: flex;
+    gap: 10px;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 400px;
+    background-color: #191919;
+}
+
+/* 音频播放器样式 */
+.audio-player {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    padding: 15px;
+    background-color: var(--card-background);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    z-index: 1000;
+    border: 1px solid var(--border-color);
+}
+
+.audio-player.hidden {
+    transform: translateY(150px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.audio-player-info {
+    margin-bottom: 10px;
+}
+
+.audio-player-title {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.audio-player-artist {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.audio-player-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.audio-player-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-light);
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    transition: color 0.2s;
+}
+
+.audio-player-close:hover {
+    color: var(--text-color);
+}
+
+.audio-duration {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    width: 70px;
+    text-align: right;
+}
+
+.audio-progress-container {
+    flex-grow: 1;
+    height: 8px;
+    background-color: var(--progress-background);
+    border-radius: 4px;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+}
+
+.audio-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    border-radius: 4px;
+    width: 0%;
+    position: relative;
+    overflow: hidden;
+    transition: width 0.1s linear;
+}
+
+/* 进度条动画效果 */
+.audio-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        45deg,
+        rgba(255,255,255,0.2) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255,255,255,0.2) 50%,
+        rgba(255,255,255,0.2) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 15px 15px;
+    animation: progress-bar-stripes 1s linear infinite;
+    z-index: 1;
+}
+
+@keyframes progress-bar-stripes {
+    from { background-position: 15px 0; }
+    to { background-position: 0 0; }
+}
+
+/* 修复按钮状态样式 */
+button[disabled], 
+.button[disabled],
+button:disabled, 
+.button:disabled {
+    opacity: 0.8 !important; 
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+/* 确保action-button即使被禁用也能点击 */
+.action-button[disabled], 
+.action-button:disabled {
+    background-color: var(--button-background) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.action-button[disabled]:hover, 
+.action-button:disabled:hover {
+    background-color: var(--button-hover-background) !important;
+    color: var(--primary-color) !important;
+}
+
+/* 问卷调查卡片样式 - 新增加 */
+.questionnaire-card {
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 8px 15px rgba(255, 64, 129, 0.2);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.questionnaire-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 50px 50px 0;
+    border-color: transparent var(--primary-color) transparent transparent;
+}
+
+.questionnaire-card .media-left .image {
+    background: var(--primary-gradient);
+    border-radius: 50%;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.questionnaire-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 20px rgba(255, 64, 129, 0.3);
+}
+
+.questionnaire-card .button {
+    background: var(--primary-gradient);
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.questionnaire-card .button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(255, 64, 129, 0.4);
+}
+
+/* 推荐页面特定样式 */
+.recommendation-box {
+    background-color: rgba(30, 30, 30, 0.7);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    -webkit-backdrop-filter: blur(5px); /* Safari 9+, iOS 9+ */
+    backdrop-filter: blur(5px);
+    overflow: hidden;
+    position: relative;
+}
+
+.recommendation-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    opacity: 0.8;
+}
+
+.recommendation-item:last-child {
+    border-bottom: none;
+}
+
+.ranking-column {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+}
+
+.rank-number {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--very-light-text);
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(45deg, var(--primary-dark), var(--primary-color));
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.album-column {
+    margin-right: 15px;
+}
+
+.album-image {
+    width: 50px;
+    height: 50px;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.album-image:hover {
+    transform: scale(1.05);
+    border-color: var(--primary-light);
+}
+
+.album-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.song-info-column {
+    padding: 12px 10px;
+    position: relative;
+}
+
+.song-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--very-light-text);
+    margin-bottom: 10px !important; /* 增加与歌手名的间距 */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    line-height: 1.3;
+}
+
+.song-artist {
+    font-size: 0.85rem;
+    color: var(--light-text);
+    margin-bottom: 10px !important;
+    opacity: 0.9;
+    position: relative;
+    padding-left: 0;
+    font-style: normal;
+}
+
+.action-column {
+    display: flex;
+    align-items: center;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.action-button {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--very-light-text);
+    transition: all 0.3s ease;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.action-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.action-button .icon {
+    margin-right: 0;
+}
+
+.action-button:disabled {
+    opacity: 0.8;
+    background-color: #444;
+    color: #fff;
+    cursor: pointer;
+}
+
+.action-button:disabled:hover {
+    background-color: #555;
+}
+
+.feedback-count {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.6rem;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 添加用户偏好信息样式 */
+.user-vector-info {
+    margin-bottom: 20px;
+    background-color: #f9f5ff;
+    border-left: 4px solid var(--primary-color);
+}
+
+.update-time-tag {
+    font-size: 0.8rem;
+}
+
+/* 添加推荐来源标识色彩 */
+.algorithm-recommendation {
+    border-left: 3px solid var(--primary-dark);
+    position: relative;
+}
+
+.algorithm-recommendation::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(106, 27, 154, 0.1), transparent);
+    pointer-events: none;
+}
+
+.emotion-recommendation {
+    border-left: 3px solid #2196F3;
+    position: relative;
+}
+
+.emotion-recommendation::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(33, 150, 243, 0.1), transparent);
+    pointer-events: none;
+}
+
+/* 反馈动画 */
+@keyframes liked-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); background-color: rgba(72, 199, 116, 0.2); }
+    100% { transform: scale(1); }
+}
+
+@keyframes disliked-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); background-color: rgba(241, 70, 104, 0.2); }
+    100% { transform: scale(1); }
+}
+
+.liked-animation {
+    animation: liked-pulse 1s ease;
+}
+
+.disliked-animation {
+    animation: disliked-pulse 1s ease;
+}
+
+/* 标签页样式优化 */
+.tabs.is-boxed {
+    margin-bottom: 20px !important;
+}
+
+.tabs.is-boxed ul {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.tabs.is-boxed li.is-active a {
+    background-color: var(--primary-color);
+    border-color: transparent;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(138, 43, 226, 0.4);
+}
+
+.tabs.is-boxed a {
+    border-radius: 8px 8px 0 0;
+    background-color: rgba(40, 40, 40, 0.7);
+    border: 1px solid transparent;
+    color: var(--light-text);
+    transition: all 0.25s ease;
+    padding: 0.7em 1.5em;
+}
+
+.tabs.is-boxed a:hover {
+    background-color: rgba(60, 60, 60, 0.8);
+    border-color: transparent;
+    color: white;
+}
+
+/* 响应式设计加强 */
+@media screen and (max-width: 768px) {
+    .song-title {
+        font-size: 1rem !important;
+        margin-bottom: 6px !important;
+    }
+    
+    .song-artist {
+        font-size: 0.8rem !important;
+        margin-bottom: 6px !important;
+    }
+    
+    .recommendation-reason {
+        font-size: 0.75rem;
+        padding: 6px 8px;
+    }
+    
+    .rank-number {
+        font-size: 1rem;
+        width: 25px;
+        height: 25px;
+    }
+    
+    .action-buttons {
+        flex-direction: row;
+        gap: 4px;
+    }
+    
+    .action-button {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .album-image {
+        width: 40px !important;
+        height: 40px !important;
+    }
+    
+    .column.ranking-column,
+    .column.album-column,
+    .column.action-column {
+        padding: 5px;
+    }
+    
+    .column.song-info-column {
+        padding: 5px 8px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .recommendation-item {
+        padding: 12px 8px;
+    }
+    
+    .tags {
+        display: none;
+    }
+    
+    .album-image {
+        width: 36px !important;
+        height: 36px !important;
+    }
+}
+
+/* 无限滚动加载更多按钮 */
+.load-more-btn {
+    transition: all 0.3s ease;
+}
+
+.load-more-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(138, 43, 226, 0.4);
+}
+
+/* 开关按钮样式 */
+.switch {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch + label {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: normal;
+  padding-left: 40px;
+  line-height: 22px;
+}
+
+.switch + label:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 14px;
+  background-color: #ddd;
+  border-radius: 34px;
+  transition: background-color 0.2s;
+}
+
+.switch + label:after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  transition: all 0.2s;
+}
+
+.switch:checked + label:before {
+  background-color: var(--primary-light);
+}
+
+.switch:checked + label:after {
+  background-color: var(--primary);
+  transform: translateX(16px);
+}
+
+.switch:focus + label:before {
+  box-shadow: 0 0 0 3px rgba(0,125,255,0.25);
+}
+
+/* 增强刷新按钮的反馈效果 */
+@keyframes refresh-success {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.refresh-success {
+  animation: refresh-success 0.5s ease-in-out;
+}
+
+/* 用户向量信息显示样式 */
+.user-vector-info .title {
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  color: #555;
+}
+
+.user-vector-info .tags {
+  flex-wrap: wrap;
+}
+
+.user-vector-info .tag {
+  margin-right: 4px;
+  margin-bottom: 4px;
+  transition: all 0.2s ease;
+}
+
+.user-vector-info .tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+} 
